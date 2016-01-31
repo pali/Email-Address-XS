@@ -5,3 +5,5 @@ README
 XS.xs
 t/Email-Address-XS.t
 lib/Email/Address/XS.pm
+dovecot-parser.h
+dovecot-parser.c
