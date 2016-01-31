@@ -1,11 +1,166 @@
-/**** rfc822-parser.c ****/
+/*
+ * Copyright (c) 2002-2015 Dovecot authors
+ * Copyright (c) 2015-2016 Pali <pali@cpan.org>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
 
-/* Copyright (c) 2005-2015 Dovecot authors, see the included COPYING file */
+#include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "lib.h"
-#include "str.h"
-#include "strescape.h"
-#include "rfc822-parser.h"
+#include "dovecot-parser.h"
+
+void i_panic(const char *format, ...);
+
+#define i_assert(expr) \
+	do { if (!(expr)) \
+	i_panic("file %s: line %d (%s): assertion failed: (%s)",	\
+		__FILE__,						\
+		__LINE__,						\
+		__FUNCTION__,						\
+		#expr);							\
+	} while ( 0 )
+
+typedef struct {
+	char *buf;
+	size_t len;
+	size_t size;
+} string_t;
+
+struct rfc822_parser_context {
+	const unsigned char *data, *end;
+	string_t *last_comment;
+};
+
+struct message_address_parser_context {
+	struct rfc822_parser_context parser;
+
+	struct message_address *first_addr, *last_addr, addr;
+	string_t *str;
+
+	bool fill_missing;
+};
+
+static string_t *str_new(size_t initial_size)
+{
+	char *buf;
+	string_t *str;
+
+	if (!initial_size)
+		initial_size = 1;
+
+	if (initial_size >= SIZE_MAX / 2)
+		i_panic("str_new() failed: %s", "initial_size is too big");
+
+	buf = malloc(initial_size);
+	if (!buf)
+		i_panic("malloc() failed: %s", strerror(errno));
+
+	str = malloc(sizeof(string_t));
+	if (!str)
+		i_panic("malloc() failed: %s", strerror(errno));
+
+	buf[0] = 0;
+
+	str->buf = buf;
+	str->len = 0;
+	str->size = initial_size;
+
+	return str;
+}
+
+static void str_free(string_t **str)
+{
+	free((*str)->buf);
+	free(*str);
+	*str = NULL;
+}
+
+static inline const char *str_c(string_t *str)
+{
+	return str->buf;
+}
+
+static inline size_t str_len(const string_t *str)
+{
+	return str->len;
+}
+
+static void str_append_data(string_t *str, const void *data, size_t len)
+{
+	char *new_buf;
+	size_t need_size;
+
+	need_size = str->len + len + 1;
+
+	if (len >= SIZE_MAX / 2 || need_size >= SIZE_MAX / 2)
+		i_panic("%s() failed: %s", __FUNCTION__, "len is too big");
+
+	if (need_size > str->size) {
+		str->size = 1;
+		while (str->size < need_size)
+			str->size <<= 1;
+
+		new_buf = realloc(str->buf, str->size);
+		if (!new_buf)
+			i_panic("realloc() failed: %s", strerror(errno));
+
+		str->buf = new_buf;
+	}
+
+	memcpy(str->buf + str->len, data, len);
+	str->len += len;
+	str->buf[str->len] = 0;
+}
+
+static inline void str_append(string_t *str, const char *cstr)
+{
+	str_append_data(str, cstr, strlen(cstr));
+}
+
+static inline void str_append_c(string_t *str, unsigned char chr)
+{
+	str_append_data(str, &chr, 1);
+}
+
+static void str_append_n(string_t *str, const void *cstr, size_t max_len)
+{
+	size_t len;
+
+	len = 0;
+	while (len < max_len && ((const char *)cstr)[len] != '\0')
+		len++;
+
+	str_append_data(str, cstr, len);
+}
+
+static void str_truncate(string_t *str, size_t len)
+{
+	if (str->size - 1 <= len || str->len <= len)
+		return;
+
+	str->len = len;
+	str->buf[len] = 0;
+}
 
 /*
    atext        =       ALPHA / DIGIT / ; Any character except controls,
@@ -53,7 +208,58 @@ unsigned char rfc822_atext_chars[256] = {
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
 
-void rfc822_parser_init(struct rfc822_parser_context *ctx,
+#define IS_ATEXT(c) \
+	(rfc822_atext_chars[(int)(unsigned char)(c)] != 0)
+#define IS_ATEXT_NON_TSPECIAL(c) \
+	((rfc822_atext_chars[(int)(unsigned char)(c)] & 3) != 0)
+
+#define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
+
+/* quote with "" and escape all '\', '"' and "'" characters if need */
+void str_append_maybe_escape(string_t *str, const char *cstr, bool escape_dot)
+{
+	const char *p;
+
+	/* see if we need to quote it */
+	for (p = cstr; *p != '\0'; p++) {
+		if (!IS_ATEXT(*p) && (escape_dot || *p != '.'))
+			break;
+	}
+
+	if (*p == '\0') {
+		str_append_data(str, cstr, (size_t) (p - cstr));
+		return;
+	}
+
+	/* see if we need to escape it */
+	for (p = cstr; *p != '\0'; p++) {
+		if (IS_ESCAPED_CHAR(*p))
+			break;
+	}
+
+	if (*p == '\0') {
+		/* only quote */
+		str_append_c(str, '"');
+		str_append_data(str, cstr, (size_t) (p - cstr));
+		str_append_c(str, '"');
+		return;
+	}
+
+	/* quote and escape */
+	str_append_c(str, '"');
+	str_append_data(str, cstr, (size_t) (p - cstr));
+
+	for (; *p != '\0'; p++) {
+		if (IS_ESCAPED_CHAR(*p))
+			str_append_c(str, '\\');
+		str_append_c(str, *p);
+	}
+
+	str_append_c(str, '"');
+}
+
+/* Parse given data using RFC 822 token parser. */
+static void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,
 			string_t *last_comment)
 {
@@ -63,7 +269,14 @@ void rfc822_parser_init(struct rfc822_parser_context *ctx,
 	ctx->last_comment = last_comment;
 }
 
-int rfc822_skip_comment(struct rfc822_parser_context *ctx)
+/* The functions below return 1 = more data available, 0 = no more data
+   available (but a value might have been returned now), -1 = invalid input.
+
+   LWSP is automatically skipped after value, but not before it. So typically
+   you begin with skipping LWSP and then start using the parse functions. */
+
+/* Parse comment. Assumes parser's data points to '(' */
+static int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 {
 	const unsigned char *start;
 	int level = 1;
@@ -107,7 +320,8 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 	return -1;
 }
 
-int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
+/* Skip LWSP if there is any */
+static int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 {
 	for (; ctx->data != ctx->end;) {
 		if (*ctx->data == ' ' || *ctx->data == '\t' ||
@@ -125,31 +339,8 @@ int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 	return ctx->data != ctx->end;
 }
 
-int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
-{
-	const unsigned char *start;
-
-	/*
-	   atom            = [CFWS] 1*atext [CFWS]
-	   atext           =
-	     ; Any character except controls, SP, and specials.
-	*/
-	if (ctx->data == ctx->end || !IS_ATEXT(*ctx->data))
-		return -1;
-
-	for (start = ctx->data++; ctx->data != ctx->end; ctx->data++) {
-		if (IS_ATEXT(*ctx->data))
-			continue;
-
-		str_append_n(str, start, ctx->data - start);
-		return rfc822_skip_lwsp(ctx);
-	}
-
-	str_append_n(str, start, ctx->data - start);
-	return 0;
-}
-
-int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
+/* Like parse_atom() but don't stop at '.' */
+static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
 	int ret;
@@ -192,23 +383,8 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 	return 0;
 }
 
-int rfc822_parse_mime_token(struct rfc822_parser_context *ctx, string_t *str)
-{
-	const unsigned char *start;
-
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
-		if (IS_ATEXT_NON_TSPECIAL(*ctx->data) || *ctx->data == '.')
-			continue;
-
-		str_append_n(str, start, ctx->data - start);
-		return rfc822_skip_lwsp(ctx);
-	}
-
-	str_append_n(str, start, ctx->data - start);
-	return 0;
-}
-
-int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
+/* "quoted string" */
+static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
 	size_t len;
@@ -270,7 +446,8 @@ rfc822_parse_atom_or_dot(struct rfc822_parser_context *ctx, string_t *str)
 	return 0;
 }
 
-int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
+/* atom or quoted-string */
+static int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
 {
 	int ret;
 
@@ -333,7 +510,8 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	return -1;
 }
 
-int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
+/* dot-atom / domain-literal */
+static int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 {
 	/*
 	   domain          = dot-atom / domain-literal / obs-domain
@@ -352,109 +530,13 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 		return rfc822_parse_dot_atom(ctx, str);
 }
 
-int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str)
-{
-	if (rfc822_skip_lwsp(ctx) <= 0)
-		return -1;
-
-	/* get main type */
-	if (rfc822_parse_mime_token(ctx, str) <= 0)
-		return -1;
-
-	/* skip over "/" */
-	if (*ctx->data != '/')
-		return -1;
-	ctx->data++;
-	if (rfc822_skip_lwsp(ctx) <= 0)
-		return -1;
-	str_append_c(str, '/');
-
-	/* get subtype */
-	return rfc822_parse_mime_token(ctx, str);
-}
-
-int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
-			       const char **key_r, const char **value_r)
-{
-	string_t *tmp;
-	size_t value_pos;
-	int ret;
-
-	/* .. := *(";" parameter)
-	   parameter := attribute "=" value
-	   attribute := token
-	   value := token / quoted-string
-	*/
-	*key_r = NULL;
-	*value_r = NULL;
-
-	if (ctx->data == ctx->end)
-		return 0;
-	if (*ctx->data != ';')
-		return -1;
-	ctx->data++;
-
-	if (rfc822_skip_lwsp(ctx) <= 0)
-		return -1;
-
-	tmp = t_str_new(64);
-	if (rfc822_parse_mime_token(ctx, tmp) <= 0)
-		return -1;
-	str_append_c(tmp, '\0');
-	value_pos = str_len(tmp);
-
-	if (*ctx->data != '=')
-		return -1;
-	ctx->data++;
-
-	if ((ret = rfc822_skip_lwsp(ctx)) <= 0) {
-		/* broken / no value */
-	} else if (*ctx->data == '"') {
-		ret = rfc822_parse_quoted_string(ctx, tmp);
-		(void)str_unescape(str_c_modifiable(tmp) + value_pos);
-	} else if (ctx->data != ctx->end && *ctx->data == '=') {
-		/* workaround for broken input:
-		   name==?utf-8?b?...?= */
-		while (ctx->data != ctx->end && *ctx->data != ';' &&
-		       *ctx->data != ' ' && *ctx->data != '\t' &&
-		       *ctx->data != '\r' && *ctx->data != '\n') {
-			str_append_c(tmp, *ctx->data);
-			ctx->data++;
-		}
-	} else {
-		ret = rfc822_parse_mime_token(ctx, tmp);
-	}
-
-	*key_r = str_c(tmp);
-	*value_r = *key_r + value_pos;
-	return ret < 0 ? -1 : 1;
-}
-
-/**** message-address.c ****/
-
-/* Copyright (c) 2002-2015 Dovecot authors, see the included COPYING file */
-
-#include "lib.h"
-#include "str.h"
-#include "message-parser.h"
-#include "message-address.h"
-#include "rfc822-parser.h"
-
-struct message_address_parser_context {
-	pool_t pool;
-	struct rfc822_parser_context parser;
-
-	struct message_address *first_addr, *last_addr, addr;
-	string_t *str;
-
-	bool fill_missing;
-};
-
 static void add_address(struct message_address_parser_context *ctx)
 {
 	struct message_address *addr;
 
-	addr = p_new(ctx->pool, struct message_address, 1);
+	addr = malloc(sizeof(struct message_address));
+	if (!addr)
+		i_panic("malloc() failed: %s", strerror(errno));
 
 	memcpy(addr, &ctx->addr, sizeof(ctx->addr));
 	memset(&ctx->addr, 0, sizeof(ctx->addr));
@@ -484,7 +566,7 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	if (ret < 0)
 		return -1;
 
-	ctx->addr.mailbox = p_strdup(ctx->pool, str_c(ctx->str));
+	ctx->addr.mailbox = strdup(str_c(ctx->str));
 	return ret;
 }
 
@@ -496,7 +578,7 @@ static int parse_domain(struct message_address_parser_context *ctx)
 	if ((ret = rfc822_parse_domain(&ctx->parser, ctx->str)) < 0)
 		return -1;
 
-	ctx->addr.domain = p_strdup(ctx->pool, str_c(ctx->str));
+	ctx->addr.domain = strdup(str_c(ctx->str));
 	return ret;
 }
 
@@ -524,7 +606,7 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 		       *ctx->parser.data == ',')
 			ctx->parser.data++;
 	}
-	ctx->addr.route = p_strdup(ctx->pool, str_c(ctx->str));
+	ctx->addr.route = strdup(str_c(ctx->str));
 	return 1;
 }
 
@@ -541,7 +623,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 
 	if (*ctx->parser.data == '@') {
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
-			ctx->addr.route = "INVALID_ROUTE";
+			ctx->addr.route = strdup("INVALID_ROUTE");
 			return -1;
 		}
 		ctx->parser.data++;
@@ -574,15 +656,16 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 	    *ctx->parser.data != '<')
 		return -1;
 
-	ctx->addr.name = p_strdup(ctx->pool, str_c(ctx->str));
-	if (*ctx->addr.name == '\0') {
+	if (*str_c(ctx->str) == '\0') {
 		/* Cope with "<address>" without display name */
 		ctx->addr.name = NULL;
+	} else {
+		ctx->addr.name = strdup(str_c(ctx->str));
 	}
 	if (parse_angle_addr(ctx) < 0) {
 		/* broken */
-		ctx->addr.domain = "SYNTAX_ERROR";
-		ctx->addr.invalid_syntax = TRUE;
+		ctx->addr.domain = strdup("SYNTAX_ERROR");
+		ctx->addr.invalid_syntax = true;
 	}
 	return ctx->parser.data != ctx->parser.end;
 }
@@ -603,7 +686,7 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 
 	if (str_len(ctx->parser.last_comment) > 0) {
 		ctx->addr.name =
-			p_strdup(ctx->pool, str_c(ctx->parser.last_comment));
+			strdup(str_c(ctx->parser.last_comment));
 	}
 	return ret;
 }
@@ -611,12 +694,12 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 static void add_fixed_address(struct message_address_parser_context *ctx)
 {
 	if (ctx->addr.mailbox == NULL) {
-		ctx->addr.mailbox = !ctx->fill_missing ? "" : "MISSING_MAILBOX";
-		ctx->addr.invalid_syntax = TRUE;
+		ctx->addr.mailbox = strdup(!ctx->fill_missing ? "" : "MISSING_MAILBOX");
+		ctx->addr.invalid_syntax = true;
 	}
 	if (ctx->addr.domain == NULL) {
-		ctx->addr.domain = !ctx->fill_missing ? "" : "MISSING_DOMAIN";
-		ctx->addr.invalid_syntax = TRUE;
+		ctx->addr.domain = strdup(!ctx->fill_missing ? "" : "MISSING_DOMAIN");
+		ctx->addr.invalid_syntax = true;
 	}
 	add_address(ctx);
 }
@@ -635,7 +718,7 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 	}
 
 	if (ret < 0)
-		ctx->addr.invalid_syntax = TRUE;
+		ctx->addr.invalid_syntax = true;
 	add_fixed_address(ctx);
 	return ret;
 }
@@ -657,9 +740,9 @@ static int parse_group(struct message_address_parser_context *ctx)
 	   the caller knows this is a group */
 	ctx->parser.data++;
 	if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
-		ctx->addr.invalid_syntax = TRUE;
+		ctx->addr.invalid_syntax = true;
 
-	ctx->addr.mailbox = p_strdup(ctx->pool, str_c(ctx->str));
+	ctx->addr.mailbox = strdup(str_c(ctx->str));
 	add_address(ctx);
 
 	if (ret > 0 && *ctx->parser.data != ';') {
@@ -688,7 +771,7 @@ static int parse_group(struct message_address_parser_context *ctx)
 		}
 	}
 	if (ret < 0)
-		ctx->addr.invalid_syntax = TRUE;
+		ctx->addr.invalid_syntax = true;
 
 	add_address(ctx);
 	return ret == 0 ? 0 : 1;
@@ -734,47 +817,86 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 	return ret;
 }
 
-static struct message_address *
-message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
-			   unsigned int max_addresses, bool fill_missing)
+void message_address_add(struct message_address **first, struct message_address **last,
+			 const char *name, const char *route, const char *mailbox, const char *domain)
 {
+	struct message_address *message;
+
+	message = malloc(sizeof(struct message_address));
+	if (!message)
+		i_panic("malloc() failed: %s", strerror(errno));
+
+	message->name = name ? strdup(name) : NULL;
+	message->route = route ? strdup(route) : NULL;
+	message->mailbox = mailbox ? strdup(mailbox) : NULL;
+	message->domain = domain ? strdup(domain) : NULL;
+	message->next = NULL;
+
+	if (!*first)
+		*first = message;
+	else
+		(*last)->next = message;
+
+	*last = message;
+}
+
+void message_address_free(struct message_address **addr)
+{
+	struct message_address *current;
+	struct message_address *next;
+
+	current = *addr;
+
+	while (current) {
+		next = current->next;
+		free(current->name);
+		free(current->route);
+		free(current->mailbox);
+		free(current->domain);
+		free(current);
+		current = next;
+	}
+
+	*addr = NULL;
+}
+
+struct message_address *
+message_address_parse(const char *input,
+		      unsigned int max_addresses, bool fill_missing)
+{
+	string_t *str;
 	struct message_address_parser_context ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
 
-	rfc822_parser_init(&ctx.parser, data, size, t_str_new(128));
-	ctx.pool = pool;
-	ctx.str = t_str_new(128);
-	ctx.fill_missing = fill_missing;
+	str = str_new(128);
+
+	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, strlen(input), str);
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
+		str_free(&str);
 		return NULL;
 	}
+
+	ctx.str = str_new(128);
+	ctx.fill_missing = fill_missing;
+
 	(void)parse_address_list(&ctx, max_addresses);
+
+	str_free(&ctx.str);
+	str_free(&str);
+
 	return ctx.first_addr;
 }
 
-struct message_address *
-message_address_parse(pool_t pool, const unsigned char *data, size_t size,
-		      unsigned int max_addresses, bool fill_missing)
+void message_address_write(char **output, const struct message_address *addr)
 {
-	struct message_address *addr;
+	string_t *str;
+	const char *tmp;
+	bool first = true, in_group = false;
 
-	if (pool->datastack_pool) {
-		return message_address_parse_real(pool, data, size,
-						  max_addresses, fill_missing);
-	}
-	T_BEGIN {
-		addr = message_address_parse_real(pool, data, size,
-						  max_addresses, fill_missing);
-	} T_END;
-	return addr;
-}
-
-void message_address_write(string_t *str, const struct message_address *addr)
-{
-	bool first = TRUE, in_group = FALSE;
+	str = str_new(128);
 
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain>
@@ -782,7 +904,7 @@ void message_address_write(string_t *str, const struct message_address *addr)
 
 	while (addr != NULL) {
 		if (first)
-			first = FALSE;
+			first = false;
 		else
 			str_append(str, ", ");
 
@@ -790,16 +912,29 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			if (!in_group) {
 				/* beginning of group. mailbox is the group
 				   name, others are NULL. */
-				if (addr->mailbox != NULL)
-					str_append(str, addr->mailbox);
+				if (addr->mailbox != NULL) {
+					/* check for MIME encoded-word */
+					if (strstr(addr->mailbox, "=?"))
+						/* MIME encoded-word MUST NOT appear within a 'quoted-string'
+						   so escaping and quoting of phrase is not possible, instead
+						   use obsolete RFC822 phrase syntax which allow spaces */
+						str_append(str, addr->mailbox);
+					else
+						str_append_maybe_escape(str, addr->mailbox, true);
+				}
 				str_append(str, ": ");
-				first = TRUE;
+				first = true;
 			} else {
 				/* end of group. all fields should be NULL. */
 				i_assert(addr->mailbox == NULL);
 
 				/* cut out the ", " */
-				str_truncate(str, str_len(str)-2);
+				tmp = str_c(str)+str_len(str)-2;
+				i_assert((tmp[0] == ',' || tmp[0] == ':') && tmp[1] == ' ');
+				if (tmp[0] == ',' && tmp[1] == ' ')
+					str_truncate(str, str_len(str)-2);
+				else if (tmp[0] == ':' && tmp[1] == ' ')
+					str_truncate(str, str_len(str)-1);
 				str_append_c(str, ';');
 			}
 
@@ -809,15 +944,22 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			/* no name and no route. use only mailbox@domain */
 			i_assert(addr->mailbox != NULL);
 
-			str_append(str, addr->mailbox);
+			str_append_maybe_escape(str, addr->mailbox, false);
 			str_append_c(str, '@');
 			str_append(str, addr->domain);
 		} else {
 			/* name and/or route. use full <mailbox@domain> Name */
 			i_assert(addr->mailbox != NULL);
 
-			if (addr->name != NULL) {
-				str_append(str, addr->name);
+			if (addr->name != NULL && *addr->name != '\0') {
+				/* check for MIME encoded-word */
+				if (strstr(addr->name, "=?"))
+					/* MIME encoded-word MUST NOT appear within a 'quoted-string'
+					   so escaping and quoting of phrase is not possible, instead
+					   use obsolete RFC822 phrase syntax which allow spaces */
+					str_append(str, addr->name);
+				else
+					str_append_maybe_escape(str, addr->name, true);
 				str_append_c(str, ' ');
 			}
 			str_append_c(str, '<');
@@ -825,7 +967,7 @@ void message_address_write(string_t *str, const struct message_address *addr)
 				str_append(str, addr->route);
 				str_append_c(str, ':');
 			}
-			str_append(str, addr->mailbox);
+			str_append_maybe_escape(str, addr->mailbox, false);
 			str_append_c(str, '@');
 			str_append(str, addr->domain);
 			str_append_c(str, '>');
@@ -833,21 +975,7 @@ void message_address_write(string_t *str, const struct message_address *addr)
 
 		addr = addr->next;
 	}
-}
 
-static const char *address_headers[] = {
-	"From", "Sender", "Reply-To",
-	"To", "Cc", "Bcc",
-	"Resent-From", "Resent-Sender", "Resent-To", "Resent-Cc", "Resent-Bcc"
-};
-
-bool message_header_is_address(const char *hdr_name)
-{
-	unsigned int i;
-
-	for (i = 0; i < N_ELEMENTS(address_headers); i++) {
-		if (strcasecmp(hdr_name, address_headers[i]) == 0)
-			return TRUE;
-	}
-	return FALSE;
+	*output = strdup(str_c(str));
+	str_free(&str);
 }
