@@ -50,11 +50,34 @@ Email::Address::XS - RFC 2822 Parse and format email groups or addresses
 
 =head1 DESCRIPTION
 
-Stub documentation for Email::Address::XS, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+This module implements L<RFC 2822|https://tools.ietf.org/html/rfc2822>
+parser and formatter of email groups or addresses. It parses input
+string from email headers which contain a list of email addresses or
+a group of email addresses (like From, To, Cc, Bcc, Reply-To, Sender,
+...). Also it can generate string values for those headers from list
+of email addresses objects.
 
-Blah blah blah.
+Parser and formatter functionality are implemented in XS and use
+shared code from Dovecot IMAP server.
+
+It is a drop-in replacement for L<the Email::Address module|Email::Address>
+which has several security issues. E.g. issue L<CVE-2015-7686 (Algorithmic complexity vulnerability)|https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2015-7686>,
+which allows remote attackers to cause denial of service, is still
+present in L<Email::Address|Email::Address> version 1.908.
+
+Email::Address::XS module was created to finally fix CVE-2015-7686.
+
+Existing applications that use Email::Address module could be easily
+switched to Email::Address::XS module. In most cases only changing
+C<use Email::Address> to C<use Email::Address::XS> and replacing every
+C<Email::Address> occurrence with C<Email::Address::XS> is sufficient.
+
+So unlike L<Email::Address|Email::Address>, this module does not use
+regular expressions for parsing but instead native XS implementation
+parses input string sequentially according to RFC 2822 grammar.
+
+Additionally it has support also for named groups and so can be use
+instead of L<the Email::Address::List module|Email::Address::List>.
 
 =head2 EXPORT
 
