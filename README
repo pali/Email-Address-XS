@@ -1,16 +1,33 @@
-Email-Address-XS version 0.01
-=============================
+Email-Address-XS
+================
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+This module implements RFC 2822 parser and formatter of email groups
+or addresses. It parses input string from email headers which contain
+a list of email addresses or a group of email addresses (like From,
+To, Cc, Bcc, Reply-To, Sender, ...). Also it can generate string
+values for those headers from list of email addresses objects.
 
-A README file is required for CPAN modules since CPAN extracts the
-README file from a module distribution so that people browsing the
-archive can use it get an idea of the modules uses. It is usually a
-good idea to provide version information here so that people can
-decide whether fixes for the module are worth downloading.
+Parser and formatter functionality are implemented in XS and use
+shared code from Dovecot IMAP server.
+
+It is a drop-in replacement for the Email::Address module which has
+several security issues. E.g. issue CVE-2015-7686 (Algorithmic
+complexity vulnerability), which allows remote attackers to cause
+denial of service, is still present in Email::Address version 1.908.
+
+Email::Address::XS module was created to finally fix CVE-2015-7686.
+
+Existing applications that use Email::Address module could be easily
+switched to Email::Address::XS module. In most cases only changing
+'use Email::Address' to 'use Email::Address::X' and replacing every
+'Email::Address' occurrence with 'Email::Address::XS' is sufficient.
+
+So unlike Email::Address, this module does not use regular expressions
+for parsing but instead native XS implementation parses input string
+sequentially according to RFC 2822 grammar.
+
+Additionally it has support also for named groups and so can be use
+instead of the Email::Address::List module.
 
 INSTALLATION
 
@@ -23,18 +40,15 @@ To install this module type the following:
 
 DEPENDENCIES
 
-This module requires these other modules and libraries:
-
-  Test
+None
 
 COPYRIGHT AND LICENCE
 
-Put the correct copyright and licence information here.
-
-Copyright (C) 2015 by Pali
+Copyright (C) 2015-2016 by Pali <pali@cpan.org>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.6.2 or,
 at your option, any later version of Perl 5 you may have available.
 
-
+Dovecot parser is licensed under The MIT License and copyrighted by
+Dovecot authors.
