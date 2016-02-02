@@ -27,7 +27,7 @@ BEGIN {
 
 subtest 'test method new()' => sub {
 
-	plan tests => 10;
+	plan tests => 11;
 
 	subtest 'test method new() without arguments' => sub {
 		plan tests => 6;
@@ -139,6 +139,17 @@ subtest 'test method new()' => sub {
 		is($address->format(), 'address <user@oceania>');
 	};
 
+	subtest 'test method new() with invalid email address' => sub {
+		plan tests => 6;
+		my $address = Email::Address::XS->new(address => 'invalid_address');
+		is($address->phrase(), undef);
+		is($address->user(), undef);
+		is($address->host(), undef);
+		is($address->address(), undef);
+		is($address->name(), '');
+		is(silent { $address->format() }, '');
+	};
+
 };
 
 #########################
@@ -205,7 +216,7 @@ subtest 'test method host()' => sub {
 
 subtest 'test method address()' => sub {
 
-	plan tests => 15;
+	plan tests => 20;
 
 	my $address = Email::Address::XS->new();
 	is($address->address(), undef);
@@ -226,6 +237,12 @@ subtest 'test method address()' => sub {
 	is($address->host(), 'ficdep.minitrue');
 
 	is($address->address(undef), undef);
+	is($address->address(), undef);
+	is($address->user(), undef);
+	is($address->host(), undef);
+
+	is($address->address('julia@ficdep.minitrue'), 'julia@ficdep.minitrue');
+	is($address->address('invalid_address'), undef);
 	is($address->address(), undef);
 
 };

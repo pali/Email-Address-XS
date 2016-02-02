@@ -312,13 +312,15 @@ sub address {
 	my ($self, @args) = @_;
 	my $user;
 	my $host;
-	if ( @args and defined $args[0] ) {
-		my ($address) = parse_email_addresses($args[0]);
-		$user = $self->user($address->user());
-		$host = $self->host($address->host());
-	} elsif ( @args ) {
-		$self->user(undef);
-		$self->host(undef);
+	if ( @args ) {
+		my ($address) = defined $args[0] ? parse_email_addresses($args[0]) : ();
+		if ( defined $address ) {
+			$user = $self->user($address->user());
+			$host = $self->host($address->host());
+		} else {
+			$self->user(undef);
+			$self->host(undef);
+		}
 	} else {
 		$user = $self->user();
 		$host = $self->host();
