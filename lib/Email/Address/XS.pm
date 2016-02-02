@@ -277,6 +277,7 @@ Accessor and mutator for the unescaped user portion of an address's address.
 sub user {
 	my ($self, @args) = @_;
 	return $self->{user} unless @args;
+	delete $self->{cached_address} if exists $self->{cached_address};
 	return $self->{user} = $args[0];
 }
 
@@ -292,6 +293,7 @@ Accessor and mutator for the host portion of an address's address.
 sub host {
 	my ($self, @args) = @_;
 	return $self->{host} unless @args;
+	delete $self->{cached_address} if exists $self->{cached_address};
 	return $self->{host} = $args[0];
 }
 
@@ -322,14 +324,15 @@ sub address {
 			$self->host(undef);
 		}
 	} else {
+		return $self->{cached_address} if exists $self->{cached_address};
 		$user = $self->user();
 		$host = $self->host();
 	}
 	if ( defined $user and defined $host ) {
 		my $address = bless { user => $user, host => $host };
-		return $address->format();
+		return $self->{cached_address} = $address->format();
 	} else {
-		return undef;
+		return $self->{cached_address} = undef;
 	}
 }
 
