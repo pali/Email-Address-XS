@@ -466,8 +466,8 @@ subtest 'test method parse_email_addresses()' => sub {
 	is_deeply(
 		[ parse_email_addresses('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania') ],
 		[
-			Email::Address::XS->new('Winston Smith', '<winston.smith@recdep.minitrue>'),
-			Email::Address::XS->new('Julia', '<julia@ficdep.minitrue>'), Email::Address::XS->new(address => 'user@oceania'),
+			Email::Address::XS->new('Winston Smith', 'winston.smith@recdep.minitrue'),
+			Email::Address::XS->new('Julia', 'julia@ficdep.minitrue'), Email::Address::XS->new(address => 'user@oceania'),
 		],
 		'test method parse_email_addresses() on string with three items',
 	);
