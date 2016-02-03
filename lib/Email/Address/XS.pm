@@ -305,8 +305,11 @@ sub host {
 Accessor and mutator for the escaped address portion of an address.
 
 Internally this module stores user and host portion of an address's
-address separately. For composing full address portion this method
-uses C<format> and for dividing uses C<parse_email_addresses>.
+address separately. Private method C<compose_address> is used for
+composing full address portion and private method C<split_address> for
+splitting into user and host parts. If splitting new address into
+these two parts is not possible then this method return undef and set
+both parts to undef.
 
 =cut
 
@@ -315,22 +318,20 @@ sub address {
 	my $user;
 	my $host;
 	if ( @args ) {
-		my ($address) = defined $args[0] ? parse_email_addresses($args[0]) : ();
-		if ( defined $address ) {
-			$user = $self->user($address->user());
-			$host = $self->host($address->host());
-		} else {
-			$self->user(undef);
-			$self->host(undef);
+		($user, $host) = split_address($args[0]) if defined $args[0];
+		if ( not defined $user or not defined $host ) {
+			$user = undef;
+			$host = undef;
 		}
+		$self->{user} = $user;
+		$self->{host} = $host;
 	} else {
 		return $self->{cached_address} if exists $self->{cached_address};
 		$user = $self->user();
 		$host = $self->host();
 	}
 	if ( defined $user and defined $host ) {
-		my $address = bless { user => $user, host => $host };
-		return $self->{cached_address} = $address->format();
+		return $self->{cached_address} = compose_address($user, $host);
 	} else {
 		return $self->{cached_address} = undef;
 	}
