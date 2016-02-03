@@ -675,7 +675,8 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	/* addr-spec       = local-part "@" domain */
 	int ret, ret2;
 
-	str_truncate(ctx->parser.last_comment, 0);
+	if (ctx->parser.last_comment != NULL)
+		str_truncate(ctx->parser.last_comment, 0);
 
 	ret = parse_local_part(ctx);
 	if (ret != 0 && *ctx->parser.data == '@') {
@@ -684,9 +685,11 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 			ret = ret2;
 	}
 
-	if (str_len(ctx->parser.last_comment) > 0) {
-		ctx->addr.name =
-			strdup(str_c(ctx->parser.last_comment));
+	if (ctx->parser.last_comment != NULL) {
+		if (str_len(ctx->parser.last_comment) > 0) {
+			ctx->addr.name =
+				strdup(str_c(ctx->parser.last_comment));
+		}
 	}
 	return ret;
 }
@@ -978,4 +981,44 @@ void message_address_write(char **output, const struct message_address *addr)
 
 	*output = strdup(str_c(str));
 	str_free(&str);
+}
+
+void compose_address(char **output, const char *mailbox, const char *domain)
+{
+	string_t *str;
+
+	str = str_new(128);
+
+	str_append_maybe_escape(str, mailbox, false);
+	str_append_c(str, '@');
+	str_append(str, domain);
+
+	*output = strdup(str_c(str));
+	str_free(&str);
+}
+
+void split_address(const char *input, char **mailbox, char **domain)
+{
+	struct message_address_parser_context ctx;
+
+	memset(&ctx, 0, sizeof(ctx));
+
+	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, strlen(input), NULL);
+
+	ctx.str = str_new(128);
+	ctx.fill_missing = false;
+
+	(void)parse_addr_spec(&ctx);
+
+	if (ctx.addr.mailbox)
+		*mailbox = strdup(ctx.addr.mailbox);
+	else
+		*mailbox = NULL;
+
+	if (ctx.addr.domain)
+		*domain = strdup(ctx.addr.domain);
+	else
+		*domain = NULL;
+
+	str_free(&ctx.str);
 }

@@ -36,4 +36,7 @@ void message_address_free(struct message_address **addr);
 
 void message_address_write(char **str, const struct message_address *addr);
 
+void compose_address(char **output, const char *mailbox, const char *domain);
+void split_address(const char *input, char **mailbox, char **domain);
+
 #endif

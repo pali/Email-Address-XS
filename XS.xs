@@ -323,3 +323,20 @@ PPCODE:
 		PUSHs(sv_2mortal(addresses_scalar));
 	}
 	message_address_free(&first_address);
+
+void
+compose_address(OUTLIST string, mailbox, domain)
+	char *string
+	char *mailbox
+	char *domain
+CLEANUP:
+	free(string);
+
+void
+split_address(string, OUTLIST mailbox, OUTLIST domain)
+	char *string
+	char *mailbox
+	char *domain
+CLEANUP:
+	free(mailbox);
+	free(domain);
