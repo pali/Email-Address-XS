@@ -716,6 +716,22 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 	start = ctx->parser.data;
 	if ((ret = parse_name_addr(ctx)) < 0) {
 		/* nope, should be addr-spec */
+		if (ctx->addr.name != NULL) {
+			free(ctx->addr.name);
+			ctx->addr.name = NULL;
+		}
+		if (ctx->addr.route != NULL) {
+			free(ctx->addr.route);
+			ctx->addr.route = NULL;
+		}
+		if (ctx->addr.mailbox != NULL) {
+			free(ctx->addr.mailbox);
+			ctx->addr.mailbox = NULL;
+		}
+		if (ctx->addr.domain != NULL) {
+			free(ctx->addr.domain);
+			ctx->addr.domain = NULL;
+		}
 		ctx->parser.data = start;
 		ret = parse_addr_spec(ctx);
 	}
@@ -1010,15 +1026,8 @@ void split_address(const char *input, char **mailbox, char **domain)
 
 	(void)parse_addr_spec(&ctx);
 
-	if (ctx.addr.mailbox)
-		*mailbox = strdup(ctx.addr.mailbox);
-	else
-		*mailbox = NULL;
-
-	if (ctx.addr.domain)
-		*domain = strdup(ctx.addr.domain);
-	else
-		*domain = NULL;
+	*mailbox = ctx.addr.mailbox;
+	*domain = ctx.addr.domain;
 
 	str_free(&ctx.str);
 }
