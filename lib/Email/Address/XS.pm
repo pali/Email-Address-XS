@@ -196,14 +196,13 @@ deprecated and ignored. Their usage throw warnings.
 sub new {
 	my ($class, @args) = @_;
 
+	my %hash_keys = (phrase => 1, address => 1, user => 1, host => 1);
 	my $is_hash;
-	if ( scalar @args == 2 ) {
-		$is_hash = 1 if defined $args[0] and $args[0] eq 'address';
-	} elsif ( scalar @args == 4 ) {
-		my %args = @args;
-		$is_hash = 1 if exists $args{address};
-		$is_hash = 1 if exists $args{user} and exists $args{host};
-	} elsif ( scalar @args != 1 and scalar @args != 3 ) {
+	if ( scalar @args == 2 and defined $args[0] ) {
+		$is_hash = 1 if exists $hash_keys{$args[0]};
+	} elsif ( scalar @args == 4 and defined $args[0] and defined $args[2] ) {
+		$is_hash = 1 if exists $hash_keys{$args[0]} and exists $hash_keys{$args[2]};
+	} elsif ( scalar @args > 4 ) {
 		$is_hash = 1;
 	}
 
