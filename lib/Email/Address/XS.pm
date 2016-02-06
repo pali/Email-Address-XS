@@ -211,8 +211,8 @@ sub new {
 	if ( $is_hash ) {
 		%args = @args;
 	} else {
-		carp 'Argument comment is deprecated and ignored' if scalar @args > 3;
-		carp 'Argument original is deprecated and ignored' if scalar @args > 2;
+		carp 'Argument original is deprecated and ignored' if scalar @args > 3;
+		carp 'Argument comment is deprecated and ignored' if scalar @args > 2;
 		$args{address} = $args[1] if scalar @args > 1;
 		$args{phrase} = $args[0] if scalar @args > 0;
 	}
