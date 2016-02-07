@@ -103,6 +103,66 @@ static void set_perl_hash_value(HV *hash, const char *key, const char *value)
 	hv_store(hash, key, klen, scalar, 0);
 }
 
+static const char *get_string_from_perl_scalar(SV *scalar, const char *name)
+{
+	if (!SvOK(scalar)) {
+		carp(CARP_WARN, "Use of uninitialized value for %s", name);
+		return "";
+	}
+
+	return SvPV_nolen(scalar);
+}
+
+static HV *get_perl_class_from_perl_cv(CV *cv)
+{
+	GV *gv;
+	HV *class;
+
+	class = NULL;
+	gv = CvGV(cv);
+
+	if (gv)
+		class = GvSTASH(gv);
+
+	if (!class)
+		class = CvSTASH(cv);
+
+	if (!class)
+		class = PL_curstash;
+
+	if (!class)
+		carp(CARP_DIE, "Cannot retrieve class");
+
+	return class;
+}
+
+static HV *get_perl_class_from_perl_scalar(SV *scalar)
+{
+	HV *class;
+	const char *class_name;
+
+	class_name = get_string_from_perl_scalar(scalar, "class");
+
+	if (!class_name[0]) {
+		carp(CARP_WARN, "Explicit blessing to '' (assuming package main)");
+		class_name = "main";
+	}
+
+	class = gv_stashpv(class_name, GV_ADD);
+	if (!class)
+		carp(CARP_DIE, "Cannot retrieve class %s", class_name);
+
+	return class;
+}
+
+static HV *get_perl_class_from_perl_scalar_or_cv(SV *scalar, CV *cv)
+{
+	if (scalar)
+		return get_perl_class_from_perl_scalar(scalar);
+	else
+		return get_perl_class_from_perl_cv(cv);
+}
+
 static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, AV *array, I32 index)
 {
 	HV *hash;
@@ -162,7 +222,7 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	message_address_add(first_address, last_address, name, NULL, mailbox, domain, comment);
 }
 
-static char *get_group_name_from_perl_scalar(SV *scalar)
+static const char *get_group_name_from_perl_scalar(SV *scalar)
 {
 	if (!SvOK(scalar))
 		return NULL;
@@ -242,7 +302,7 @@ static int count_address_groups(struct message_address *first_address)
 	return count;
 }
 
-static bool get_next_perl_address_group(struct message_address **address, SV **group_scalar, SV **addresses_scalar, HV *package)
+static bool get_next_perl_address_group(struct message_address **address, SV **group_scalar, SV **addresses_scalar, HV *class)
 {
 	HV *hash;
 	SV *object;
@@ -275,7 +335,7 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 		set_perl_hash_value(hash, "comment", (*address)->comment);
 
 		hash_ref = newRV_noinc((SV *)hash);
-		object = sv_bless(hash_ref, package);
+		object = sv_bless(hash_ref, class);
 
 		av_push(addresses_array, object);
 
@@ -319,28 +379,31 @@ OUTPUT:
 
 void
 parse_email_groups(string, class = NO_INIT)
-	char *string
-	char *class
+	SV *string
+	SV *class
 PREINIT:
 	int count;
-	HV *package;
+	HV *hv_class;
 	SV *group_scalar;
 	SV *addresses_scalar;
+	const char *input;
+	const char *class_name;
 	struct message_address *address;
 	struct message_address *first_address;
 INIT:
-	if (items < 2)
-		package = GvSTASH(CvGV(cv));
-	else
-		package = gv_stashpv(class, GV_ADD);
-	if (!package)
-		croak("Cannot retrieve package%s%s", (items < 2 ? "" : " for class "), (items < 2 ? "" : class));
+	input = get_string_from_perl_scalar(string, "string");
+	hv_class = get_perl_class_from_perl_scalar_or_cv(items >= 2 ? class : NULL, cv);
+	if (items >= 2 && !sv_derived_from(class, "Email::Address::XS")) {
+		class_name = HvNAME(hv_class);
+		carp(CARP_WARN, "Class %s is not derived from Email::Address::XS", (class_name ? class_name : "(unknown)"));
+		XSRETURN_EMPTY;
+	}
 PPCODE:
-	first_address = message_address_parse(string, UINT_MAX, false);
+	first_address = message_address_parse(input, UINT_MAX, false);
 	count = count_address_groups(first_address);
 	EXTEND(SP, count * 2);
 	address = first_address;
-	while (get_next_perl_address_group(&address, &group_scalar, &addresses_scalar, package)) {
+	while (get_next_perl_address_group(&address, &group_scalar, &addresses_scalar, hv_class)) {
 		PUSHs(sv_2mortal(group_scalar));
 		PUSHs(sv_2mortal(addresses_scalar));
 	}
@@ -349,14 +412,14 @@ PPCODE:
 void
 compose_address(OUTLIST string, mailbox, domain)
 	char *string
-	char *mailbox
-	char *domain
+	const char *mailbox
+	const char *domain
 CLEANUP:
 	free(string);
 
 void
 split_address(string, OUTLIST mailbox, OUTLIST domain)
-	char *string
+	const char *string
 	char *mailbox
 	char *domain
 CLEANUP:
