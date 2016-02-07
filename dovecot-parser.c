@@ -755,6 +755,10 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 		}
 		ctx->parser.data = start;
 		ret = parse_addr_spec(ctx);
+		if (ctx->addr.invalid_syntax && ctx->addr.mailbox && !ctx->addr.domain) {
+			ctx->addr.name = ctx->addr.mailbox;
+			ctx->addr.mailbox = NULL;
+		}
 	}
 
 	if (ret < 0)
