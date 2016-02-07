@@ -193,8 +193,6 @@ static int count_address_groups(struct message_address *first_address)
 	in_group = false;
 
 	for (address = first_address; address; address = address->next) {
-		if (address->invalid_syntax)
-			continue;
 		if (!address->domain)
 			in_group = !in_group;
 		if (in_group)
@@ -212,9 +210,6 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 	SV *hash_ref;
 	bool in_group;
 	AV *addresses_array;
-
-	while (*address && (*address)->invalid_syntax)
-		*address = (*address)->next;
 
 	if (!*address)
 		return false;
