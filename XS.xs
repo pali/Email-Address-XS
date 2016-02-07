@@ -73,6 +73,7 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	const char *name;
 	const char *mailbox;
 	const char *domain;
+	const char *comment;
 
 	object_ptr = av_fetch(array, index, 0);
 	if (!object_ptr) {
@@ -102,6 +103,7 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	name = get_perl_hash_value(hash, "phrase");
 	mailbox = get_perl_hash_value(hash, "user");
 	domain = get_perl_hash_value(hash, "host");
+	comment = get_perl_hash_value(hash, "comment");
 
 	if (!mailbox && !domain) {
 		warn("Element at index %d contains empty address", (int)index);
@@ -118,7 +120,7 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 		domain = "";
 	}
 
-	message_address_add(first_address, last_address, name, NULL, mailbox, domain);
+	message_address_add(first_address, last_address, name, NULL, mailbox, domain, comment);
 }
 
 static char *get_group_name_from_perl_scalar(SV *scalar)
@@ -172,13 +174,13 @@ static void message_address_add_from_perl_group(struct message_address **first_a
 		len = 0;
 
 	if (group_name)
-		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL);
+		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL, NULL);
 
 	for (index = 0; index < len; ++index)
 		message_address_add_from_perl_array(first_address, last_address, array, index);
 
 	if (group_name)
-		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL);
+		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
 }
 
 static int count_address_groups(struct message_address *first_address)
@@ -246,6 +248,7 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 		set_perl_hash_value(hash, "phrase", (*address)->name);
 		set_perl_hash_value(hash, "user", (*address)->mailbox);
 		set_perl_hash_value(hash, "host", (*address)->domain);
+		set_perl_hash_value(hash, "comment", (*address)->comment);
 
 		hash_ref = newRV_noinc((SV *)hash);
 		if (!hash_ref)

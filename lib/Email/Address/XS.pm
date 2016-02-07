@@ -24,7 +24,7 @@ Email::Address::XS - RFC 2822 Parse and format email groups or addresses
 
   use Email::Address::XS;
 
-  my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue');
+  my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue', comment => 'Records Department');
   print $winstons_address->address();
 
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
@@ -177,26 +177,26 @@ or merging.
 =item new
 
   my $empty_address = Email::Address::XS->new();
-  my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue');
+  my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue', comment => 'Records Department');
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
   my $user_address = Email::Address::XS->new(address => 'user@oceania');
   my $only_name = Email::Address::XS->new(phrase => 'Name');
 
-Constructs and returns a new C<Email::Address::XS> object. Takes either
-named list of arguments: phrase, address, user, host. Argument address
-takes precedence before user and host.
+Constructs and returns a new C<Email::Address::XS> object. Takes named
+list of arguments: phrase, address, user, host and comment. Argument
+address takes precedence over user and host.
 
 Old syntax L<from the Email::Address module|Email::Address/new> is
 supported too. Takes one to four positional arguments: phrase, address
-comment, and original string. Arguments comment and original are
-deprecated and ignored. Their usage throw warnings.
+comment, and original string. Argument original is deprecated and
+ignored. Passing it throw warning.
 
 =cut
 
 sub new {
 	my ($class, @args) = @_;
 
-	my %hash_keys = (phrase => 1, address => 1, user => 1, host => 1);
+	my %hash_keys = (phrase => 1, address => 1, user => 1, host => 1, comment => 1);
 	my $is_hash;
 	if ( scalar @args == 2 and defined $args[0] ) {
 		$is_hash = 1 if exists $hash_keys{$args[0]};
@@ -211,7 +211,7 @@ sub new {
 		%args = @args;
 	} else {
 		carp 'Argument original is deprecated and ignored' if scalar @args > 3;
-		carp 'Argument comment is deprecated and ignored' if scalar @args > 2;
+		$args{comment} = $args[2] if scalar @args > 2;
 		$args{address} = $args[1] if scalar @args > 1;
 		$args{phrase} = $args[0] if scalar @args > 0;
 	}
@@ -219,6 +219,7 @@ sub new {
 	my $self = bless {}, $class;
 
 	$self->phrase($args{phrase});
+	$self->comment($args{comment});
 
 	if ( exists $args{address} ) {
 		$self->address($args{address});
@@ -336,13 +337,39 @@ sub address {
 	}
 }
 
+=item comment
+
+  my $comment = $address->comment();
+  $address->comment('Records Department');
+
+Accessor and mutator for the comment which is formatted after address.
+Comment can contain another nested comments in round brackets. When
+setting new comment this method check if brackets are balanced. If not
+undef is set and returned.
+
+=cut
+
+sub comment {
+	my ($self, @args) = @_;
+	return $self->{comment} unless @args;
+	return $self->{comment} = undef unless defined $args[0];
+	my $count = 0;
+	foreach ( split('', $args[0]) ) {
+		$count++ if $_ eq '(';
+		$count-- if $_ eq ')';
+		last if $count < 0;
+	}
+	return $self->{comment} = undef if $count != 0;
+	return $self->{comment} = $args[0];
+}
+
 =item name
 
   my $name = $address->name();
 
 This method tries to return the name belonging to the address. It
-returns either C<phrase> or C<user> portion of C<address> or empty
-string. But never returns undef.
+returns C<phrase> or C<comment> or C<user> portion of C<address> or
+empty string (first defined value in this order). Never returns undef.
 
 =cut
 
@@ -350,6 +377,8 @@ sub name {
 	my ($self) = @_;
 	my $phrase = $self->phrase();
 	return $phrase if defined $phrase and length $phrase;
+	my $comment = $self->comment();
+	return $comment if defined $comment and length $comment;
 	my $user = $self->user();
 	return $user if defined $user and length $user;
 	return '';
@@ -414,9 +443,6 @@ Deprecated class method C<parse> takes two arguments class name and
 input string. It just calls method C<parse_email_addresses>. Usage is
 same as in old L<Email::Address module|Email::Address/parse>.
 
-There is also method C<comment> which always returns undef and method
-C<original> which returns C<address>. Do not use them.
-
 =cut
 
 sub parse {
@@ -424,10 +450,11 @@ sub parse {
 	return parse_email_addresses($string, $class);
 }
 
-sub comment {
-	carp 'Method comment is deprecated and always returns undef';
-	return undef;
-}
+=pod
+
+Deprecated object method C<original> just returns C<address>.
+
+=cut
 
 sub original {
 	my ($self) = @_;

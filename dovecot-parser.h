@@ -16,6 +16,7 @@ struct message_address {
 	/* local-part */
 	char *mailbox;
 	char *domain;
+	char *comment;
 	/* there were errors when parsing this address */
 	bool invalid_syntax;
 };
@@ -30,7 +31,8 @@ struct message_address *
 message_address_parse(const char *str, unsigned int max_addresses, bool fill_missing);
 
 void message_address_add(struct message_address **first, struct message_address **last,
-			 const char *name, const char *route, const char *mailbox, const char *domain);
+			 const char *name, const char *route, const char *mailbox,
+			 const char *domain, const char *comment);
 
 void message_address_free(struct message_address **addr);
 

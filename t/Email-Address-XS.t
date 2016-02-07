@@ -9,7 +9,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 15;
 
 sub silent(&) {
 	my ($code) = @_;
@@ -27,127 +27,158 @@ BEGIN {
 
 subtest 'test method new()' => sub {
 
-	plan tests => 11;
+	plan tests => 13;
 
 	subtest 'test method new() without arguments' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new();
 		is($address->phrase(), undef);
 		is($address->user(), undef);
 		is($address->host(), undef);
 		is($address->address(), undef);
+		is($address->comment(), undef);
 		is($address->name(), '');
 		is(silent { $address->format() }, '');
 	};
 
 	subtest 'test method new() with one argument' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new('Addressless Outer Party Member');
 		is($address->phrase(), 'Addressless Outer Party Member');
 		is($address->user(), undef);
 		is($address->host(), undef);
 		is($address->address(), undef);
+		is($address->comment(), undef);
 		is($address->name(), 'Addressless Outer Party Member');
 		is(silent { $address->format() }, '');
 	};
 
 	subtest 'test method new() with two arguments as array' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(undef, 'user@oceania');
 		is($address->phrase(), undef);
 		is($address->user(), 'user');
 		is($address->host(), 'oceania');
 		is($address->address(), 'user@oceania');
+		is($address->comment(), undef);
 		is($address->name(), 'user');
 		is($address->format(), 'user@oceania');
 	};
 
 	subtest 'test method new() with two arguments as hash' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(address => 'winston.smith@recdep.minitrue');
 		is($address->phrase(), undef);
 		is($address->user(), 'winston.smith');
 		is($address->host(), 'recdep.minitrue');
 		is($address->address(), 'winston.smith@recdep.minitrue');
+		is($address->comment(), undef);
 		is($address->name(), 'winston.smith');
 		is($address->format(), 'winston.smith@recdep.minitrue');
 	};
 
 	subtest 'test method new() with two arguments as array' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(Julia => 'julia@ficdep.minitrue');
 		is($address->phrase(), 'Julia');
 		is($address->user(), 'julia');
 		is($address->host(), 'ficdep.minitrue');
 		is($address->address(), 'julia@ficdep.minitrue');
+		is($address->comment(), undef);
 		is($address->name(), 'Julia');
 		is($address->format(), 'Julia <julia@ficdep.minitrue>');
 	};
 
 	subtest 'test method new() with three arguments' => sub {
-		plan tests => 6;
-		my $address = silent { Email::Address::XS->new('Winston Smith', 'winston.smith@recdep.minitrue', 'deprecated_original_string') };
+		plan tests => 7;
+		my $address = Email::Address::XS->new('Winston Smith', 'winston.smith@recdep.minitrue', 'Records Department');
 		is($address->phrase(), 'Winston Smith');
 		is($address->user(), 'winston.smith');
 		is($address->host(), 'recdep.minitrue');
 		is($address->address(), 'winston.smith@recdep.minitrue');
+		is($address->comment(), 'Records Department');
 		is($address->name(), 'Winston Smith');
-		is($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue>');
+		is($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)');
 	};
 
 	subtest 'test method new() with four arguments user & host as hash' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(user => 'julia', host => 'ficdep.minitrue');
 		is($address->phrase(), undef);
 		is($address->user(), 'julia');
 		is($address->host(), 'ficdep.minitrue');
 		is($address->address(), 'julia@ficdep.minitrue');
+		is($address->comment(), undef);
 		is($address->name(), 'julia');
 		is($address->format(), 'julia@ficdep.minitrue');
 	};
 
 	subtest 'test method new() with four arguments phrase & address as hash' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
 		is($address->phrase(), 'Julia');
 		is($address->user(), 'julia');
 		is($address->host(), 'ficdep.minitrue');
 		is($address->address(), 'julia@ficdep.minitrue');
+		is($address->comment(), undef);
 		is($address->name(), 'Julia');
 		is($address->format(), 'Julia <julia@ficdep.minitrue>');
 	};
 
 	subtest 'test method new() with four arguments as array' => sub {
-		plan tests => 6;
-		my $address = silent { Email::Address::XS->new('Julia', 'julia@ficdep.minitrue', 'deprecated_original_string', 'deprecated_comment_string') };
+		plan tests => 7;
+		my $address = silent { Email::Address::XS->new('Julia', 'julia@ficdep.minitrue', 'Fiction Department', 'deprecated_original_string') };
 		is($address->phrase(), 'Julia');
 		is($address->user(), 'julia');
 		is($address->host(), 'ficdep.minitrue');
 		is($address->address(), 'julia@ficdep.minitrue');
+		is($address->comment(), 'Fiction Department');
 		is($address->name(), 'Julia');
-		is($address->format(), 'Julia <julia@ficdep.minitrue>');
+		is($address->format(), 'Julia <julia@ficdep.minitrue> (Fiction Department)');
 	};
 
 	subtest 'test method new() with four arguments as hash (phrase is string "address")' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(phrase => 'address', address => 'user@oceania');
 		is($address->phrase(), 'address');
 		is($address->user(), 'user');
 		is($address->host(), 'oceania');
 		is($address->address(), 'user@oceania');
+		is($address->comment(), undef);
 		is($address->name(), 'address');
 		is($address->format(), 'address <user@oceania>');
 	};
 
 	subtest 'test method new() with invalid email address' => sub {
-		plan tests => 6;
+		plan tests => 7;
 		my $address = Email::Address::XS->new(address => 'invalid_address');
 		is($address->phrase(), undef);
 		is($address->user(), undef);
 		is($address->host(), undef);
 		is($address->address(), undef);
+		is($address->comment(), undef);
 		is($address->name(), '');
 		is(silent { $address->format() }, '');
+	};
+
+	subtest 'test method new() with all named arguments' => sub {
+		plan tests => 7;
+		my $address = Email::Address::XS->new(phrase => 'Julia', user => 'julia', host => 'ficdep.minitrue', comment => 'Fiction Department');
+		is($address->phrase(), 'Julia');
+		is($address->user(), 'julia');
+		is($address->host(), 'ficdep.minitrue');
+		is($address->address(), 'julia@ficdep.minitrue');
+		is($address->comment(), 'Fiction Department');
+		is($address->name(), 'Julia');
+		is($address->format(), 'Julia <julia@ficdep.minitrue> (Fiction Department)');
+	};
+
+	subtest 'test method new() that address takes precedence over user and host' => sub {
+		plan tests => 3;
+		my $address = Email::Address::XS->new(user => 'winston.smith', host => 'recdep.minitrue', address => 'julia@ficdep.minitrue' );
+		is($address->user(), 'julia');
+		is($address->host(), 'ficdep.minitrue');
+		is($address->address(), 'julia@ficdep.minitrue');
 	};
 
 };
@@ -249,9 +280,44 @@ subtest 'test method address()' => sub {
 
 #########################
 
+subtest 'test method comment()' => sub {
+
+	plan tests => 17;
+
+	my $address = Email::Address::XS->new();
+	is($address->comment(), undef);
+
+	is($address->comment('Fiction Department'), 'Fiction Department');
+	is($address->comment(), 'Fiction Department');
+
+	is($address->comment('Records Department'), 'Records Department');
+	is($address->comment(), 'Records Department');
+
+	is($address->comment(undef), undef);
+	is($address->comment(), undef);
+
+	is($address->comment('(comment)'), '(comment)');
+	is($address->comment(), '(comment)');
+
+	is($address->comment('string (comment) string'), 'string (comment) string');
+	is($address->comment(), 'string (comment) string');
+
+	is($address->comment('string (comment (nested ()comment)another comment)()'), 'string (comment (nested ()comment)another comment)()');
+	is($address->comment(), 'string (comment (nested ()comment)another comment)()');
+
+	is($address->comment('string ((not balanced comment)'), undef);
+	is($address->comment(), undef);
+
+	is($address->comment('string )(()not balanced'), undef);
+	is($address->comment(), undef);
+
+};
+
+#########################
+
 subtest 'test method name()' => sub {
 
-	plan tests => 11;
+	plan tests => 14;
 
 	my $address = Email::Address::XS->new();
 	is($address->name(), '');
@@ -268,6 +334,9 @@ subtest 'test method name()' => sub {
 	$address->address('winston.smith@recdep.minitrue');
 	is($address->name(), 'winston.smith');
 
+	$address->comment('Winston');
+	is($address->name(), 'Winston');
+
 	$address->phrase('Long phrase');
 	is($address->name(), 'Long phrase');
 
@@ -277,7 +346,13 @@ subtest 'test method name()' => sub {
 	$address->user('user3');
 	is($address->name(), 'Long phrase 2');
 
+	$address->comment('winston');
+	is($address->name(), 'Long phrase 2');
+
 	$address->phrase(undef);
+	is($address->name(), 'winston');
+
+	$address->comment(undef);
 	is($address->name(), 'user3');
 
 	$address->address(undef);
@@ -426,8 +501,8 @@ subtest 'test method parse_email_addresses()' => sub {
 
 	is_deeply(
 		[ parse_email_addresses('winston.smith@recdep.minitrue (Winston Smith)') ],
-		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue') ],
-		'test method parse_email_addresses() on string with display name in comment after address',
+		[ Email::Address::XS->new(address => 'winston.smith@recdep.minitrue', comment => 'Winston Smith') ],
+		'test method parse_email_addresses() on string with comment after address',
 	);
 
 	is_deeply(
@@ -473,10 +548,10 @@ subtest 'test method parse_email_addresses()' => sub {
 	);
 
 	is_deeply(
-		[ parse_email_addresses('(leading comment)"Winston (Smith)" <winston.smith@recdep.minitrue(.oceania)> (comment), Julia (Unknown) <julia(outer party)@ficdep.minitrue> (additional comment)') ],
+		[ parse_email_addresses('(leading comment)"Winston (Smith)" <winston.smith@recdep.minitrue(.oceania)> (comment after), Julia (Unknown) <julia(outer party)@ficdep.minitrue> (additional comment)') ],
 		[
-			Email::Address::XS->new(phrase => 'Winston (Smith)', address => 'winston.smith@recdep.minitrue'),
-			Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'),
+			Email::Address::XS->new(phrase => 'Winston (Smith)', address => 'winston.smith@recdep.minitrue', comment => 'comment after'),
+			Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue', comment => 'additional comment'),
 		],
 		'test method parse_email_addresses() on string with a lots of comments',
 	);
@@ -598,7 +673,7 @@ subtest 'test method parse_email_groups()' => sub {
 	my $undef = undef;
 
 	is_deeply(
-		[ parse_email_groups('"Ministry of \\"Truth\\"": "Winston Smith" ( <user@oceania>, (Julia _ (Unknown)) <julia_(outer(.)party)@ficdep.minitrue>, ) <winston.smith@recdep.minitrue>, (comment) Julia <julia@ficdep.minitrue>;, "Thought Police" (comment) : O\'Brien <o\'brien@thought.police.oceania>, Mr. (c)Charrington <(mr.)"charrington\\"@\\"shop"@thought.police.oceania>;, user@oceania (unknown_display_name in comment), "Escape \" also , characters" <user2@oceania>, undisclosed-recipients:;, user3@oceania, Brotherhood(s):"Emmanuel Goldstein"<goldstein@brotherhood.oceania>; , "users@oceania" : "user5@oceania\\" <user6@oceania> , \\"" <user4@oceania>;' ) ],
+		[ parse_email_groups('"Ministry of \\"Truth\\"": "Winston Smith" ( <user@oceania>, (Julia _ (Unknown)) <julia_(outer(.)party)@ficdep.minitrue>, ) <winston.smith@recdep.minitrue>, (leading comment) Julia <julia@ficdep.minitrue>;, "Thought Police" (group name comment) : O\'Brien <o\'brien@thought.police.oceania>, Mr. (c)Charrington <(mr.)"charrington\\"@\\"shop"@thought.police.oceania> (junk shop);, user@oceania (unknown_display_name in comment), "Escape \" also , characters" <user2@oceania>, undisclosed-recipients:;, user3@oceania (nested (comment)), Brotherhood(s):"Emmanuel Goldstein"<goldstein@brotherhood.oceania>; , "users@oceania" : "user5@oceania\\" <user6@oceania> , \\"" <user4@oceania>;' ) ],
 		[
 			'Ministry of "Truth"' => [
 				Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'),
@@ -606,15 +681,15 @@ subtest 'test method parse_email_groups()' => sub {
 			],
 			'Thought Police' => [
 				Email::Address::XS->new(phrase => "O'Brien", user => "o'brien", host => 'thought.police.oceania'),
-				Email::Address::XS->new(phrase => 'Mr. Charrington', user => 'charrington"@"shop', host => 'thought.police.oceania'),
+				Email::Address::XS->new(phrase => 'Mr. Charrington', user => 'charrington"@"shop', host => 'thought.police.oceania', comment => 'junk shop'),
 			],
 			$undef => [
-				Email::Address::XS->new(phrase => 'unknown_display_name in comment', address => 'user@oceania'),
+				Email::Address::XS->new(address => 'user@oceania', comment => 'unknown_display_name in comment'),
 				Email::Address::XS->new(phrase => 'Escape " also , characters', address => 'user2@oceania'),
 			],
 			'undisclosed-recipients' => [],
 			$undef => [
-				Email::Address::XS->new(address => 'user3@oceania'),
+				Email::Address::XS->new(address => 'user3@oceania', comment => 'nested (comment)'),
 			],
 			Brotherhood => [
 				Email::Address::XS->new(phrase => 'Emmanuel Goldstein', address => 'goldstein@brotherhood.oceania'),

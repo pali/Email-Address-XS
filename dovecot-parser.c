@@ -662,11 +662,23 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 	} else {
 		ctx->addr.name = strdup(str_c(ctx->str));
 	}
+
+	if (ctx->parser.last_comment != NULL)
+		str_truncate(ctx->parser.last_comment, 0);
+
 	if (parse_angle_addr(ctx) < 0) {
 		/* broken */
 		ctx->addr.domain = strdup("SYNTAX_ERROR");
 		ctx->addr.invalid_syntax = true;
 	}
+
+	if (ctx->parser.last_comment != NULL) {
+		if (str_len(ctx->parser.last_comment) > 0) {
+			ctx->addr.comment =
+				strdup(str_c(ctx->parser.last_comment));
+		}
+	}
+
 	return ctx->parser.data != ctx->parser.end;
 }
 
@@ -687,7 +699,7 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 
 	if (ctx->parser.last_comment != NULL) {
 		if (str_len(ctx->parser.last_comment) > 0) {
-			ctx->addr.name =
+			ctx->addr.comment =
 				strdup(str_c(ctx->parser.last_comment));
 		}
 	}
@@ -731,6 +743,10 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 		if (ctx->addr.domain != NULL) {
 			free(ctx->addr.domain);
 			ctx->addr.domain = NULL;
+		}
+		if (ctx->addr.comment != NULL) {
+			free(ctx->addr.comment);
+			ctx->addr.comment = NULL;
 		}
 		ctx->parser.data = start;
 		ret = parse_addr_spec(ctx);
@@ -837,7 +853,8 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 }
 
 void message_address_add(struct message_address **first, struct message_address **last,
-			 const char *name, const char *route, const char *mailbox, const char *domain)
+			 const char *name, const char *route, const char *mailbox,
+			 const char *domain, const char * comment)
 {
 	struct message_address *message;
 
@@ -849,6 +866,7 @@ void message_address_add(struct message_address **first, struct message_address 
 	message->route = route ? strdup(route) : NULL;
 	message->mailbox = mailbox ? strdup(mailbox) : NULL;
 	message->domain = domain ? strdup(domain) : NULL;
+	message->comment = comment ? strdup(comment) : NULL;
 	message->next = NULL;
 
 	if (!*first)
@@ -872,6 +890,7 @@ void message_address_free(struct message_address **addr)
 		free(current->route);
 		free(current->mailbox);
 		free(current->domain);
+		free(current->comment);
 		free(current);
 		current = next;
 	}
@@ -966,6 +985,12 @@ void message_address_write(char **output, const struct message_address *addr)
 			str_append_maybe_escape(str, addr->mailbox, false);
 			str_append_c(str, '@');
 			str_append(str, addr->domain);
+
+			if (addr->comment != NULL) {
+				str_append(str, " (");
+				str_append(str, addr->comment);
+				str_append_c(str, ')');
+			}
 		} else {
 			/* name and/or route. use full <mailbox@domain> Name */
 			i_assert(addr->mailbox != NULL);
@@ -990,6 +1015,12 @@ void message_address_write(char **output, const struct message_address *addr)
 			str_append_c(str, '@');
 			str_append(str, addr->domain);
 			str_append_c(str, '>');
+
+			if (addr->comment != NULL) {
+				str_append(str, " (");
+				str_append(str, addr->comment);
+				str_append_c(str, ')');
+			}
 		}
 
 		addr = addr->next;
