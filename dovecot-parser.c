@@ -950,7 +950,7 @@ void message_address_write(char **output, const struct message_address *addr)
 			if (!in_group) {
 				/* beginning of group. mailbox is the group
 				   name, others are NULL. */
-				if (addr->mailbox != NULL) {
+				if (addr->mailbox != NULL && *addr->mailbox != '\0') {
 					/* check for MIME encoded-word */
 					if (strstr(addr->mailbox, "=?"))
 						/* MIME encoded-word MUST NOT appear within a 'quoted-string'
@@ -959,6 +959,9 @@ void message_address_write(char **output, const struct message_address *addr)
 						str_append(str, addr->mailbox);
 					else
 						str_append_maybe_escape(str, addr->mailbox, true);
+				} else {
+					/* empty group name needs to be escaped */
+					str_append(str, "\"\"");
 				}
 				str_append(str, ": ");
 				first = true;
