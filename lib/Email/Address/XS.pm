@@ -330,7 +330,7 @@ sub address {
 		$user = $self->user();
 		$host = $self->host();
 	}
-	if ( defined $user and defined $host ) {
+	if ( defined $user and defined $host and length $user and length $host ) {
 		return $self->{cached_address} = compose_address($user, $host);
 	} else {
 		return $self->{cached_address} = undef;

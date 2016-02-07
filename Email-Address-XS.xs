@@ -204,6 +204,12 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	domain = get_perl_hash_value(hash, "host");
 	comment = get_perl_hash_value(hash, "comment");
 
+	if (mailbox && !mailbox[0])
+		mailbox = NULL;
+
+	if (domain && !domain[0])
+		domain = NULL;
+
 	if (!mailbox && !domain) {
 		carp(CARP_WARN, "Element at index %d contains empty address", (int)index);
 		return;
@@ -330,8 +336,8 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 		hash = newHV();
 
 		set_perl_hash_value(hash, "phrase", (*address)->name);
-		set_perl_hash_value(hash, "user", (*address)->mailbox);
-		set_perl_hash_value(hash, "host", (*address)->domain);
+		set_perl_hash_value(hash, "user", ( (*address)->mailbox && (*address)->mailbox[0] ) ? (*address)->mailbox : NULL);
+		set_perl_hash_value(hash, "host", ( (*address)->domain && (*address)->domain[0] ) ? (*address)->domain : NULL);
 		set_perl_hash_value(hash, "comment", (*address)->comment);
 
 		hash_ref = newRV_noinc((SV *)hash);
