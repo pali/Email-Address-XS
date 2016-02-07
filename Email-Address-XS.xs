@@ -16,6 +16,48 @@ void i_panic(const char *format, ...)
 	va_end(args);
 }
 
+static void append_carp_shortmess(SV *scalar)
+{
+	dSP;
+	int count;
+
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+
+	count = call_pv("Carp::shortmess", G_SCALAR);
+
+	SPAGAIN;
+
+	if (count > 0)
+		sv_catsv(scalar, POPs);
+
+	PUTBACK;
+	FREETMPS;
+	LEAVE;
+}
+
+#define CARP_WARN false
+#define CARP_DIE true
+static void carp(bool fatal, const char *format, ...)
+{
+	va_list args;
+	SV *scalar;
+
+	va_start(args, format);
+	scalar = vnewSVpvf(format, &args);
+	va_end(args);
+
+	append_carp_shortmess(scalar);
+
+	if (!fatal)
+		warn_sv(scalar);
+	else
+		croak_sv(scalar);
+
+	SvREFCNT_dec(scalar);
+}
+
 static const char *get_perl_hash_value(HV *hash, const char *key)
 {
 	I32 klen;
@@ -29,7 +71,7 @@ static const char *get_perl_hash_value(HV *hash, const char *key)
 
 	scalar_ptr = hv_fetch(hash, key, klen, 0);
 	if (!scalar_ptr) {
-		warn("HASH value of key '%s' is NULL", key);
+		carp(CARP_WARN, "HASH value of key '%s' is NULL", key);
 		return NULL;
 	}
 
@@ -39,7 +81,7 @@ static const char *get_perl_hash_value(HV *hash, const char *key)
 		return NULL;
 
 	if (!SvPOK(scalar)) {
-		warn("HASH value of key '%s' is not string", key);
+		carp(CARP_WARN, "HASH value of key '%s' is not string", key);
 		return NULL;
 	}
 
@@ -58,9 +100,6 @@ static void set_perl_hash_value(HV *hash, const char *key, const char *value)
 	else
 		scalar = newSV(0);
 
-	if (!scalar)
-		croak("newSV() failed");
-
 	hv_store(hash, key, klen, scalar, 0);
 }
 
@@ -77,24 +116,24 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 
 	object_ptr = av_fetch(array, index, 0);
 	if (!object_ptr) {
-		warn("Element at index %d is NULL", (int)index);
+		carp(CARP_WARN, "Element at index %d is NULL", (int)index);
 		return;
 	}
 
 	object = *object_ptr;
 	if (!sv_isobject(object) || !sv_derived_from(object, "Email::Address::XS")) {
-		warn("Element at index %d is not Email::Address::XS object", (int)index);
+		carp(CARP_WARN, "Element at index %d is not Email::Address::XS object", (int)index);
 		return;
 	}
 
 	if (!SvROK(object)) {
-		warn("Element at index %d is not reference", (int)index);
+		carp(CARP_WARN, "Element at index %d is not reference", (int)index);
 		return;
 	}
 
 	scalar = SvRV(object);
 	if (SvTYPE(scalar) != SVt_PVHV) {
-		warn("Element at index %d is not HASH reference", (int)index);
+		carp(CARP_WARN, "Element at index %d is not HASH reference", (int)index);
 		return;
 	}
 
@@ -106,17 +145,17 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	comment = get_perl_hash_value(hash, "comment");
 
 	if (!mailbox && !domain) {
-		warn("Element at index %d contains empty address", (int)index);
+		carp(CARP_WARN, "Element at index %d contains empty address", (int)index);
 		return;
 	}
 
 	if (!mailbox) {
-		warn("Element at index %d contains empty user portion of address", (int)index);
+		carp(CARP_WARN, "Element at index %d contains empty user portion of address", (int)index);
 		mailbox = "";
 	}
 
 	if (!domain) {
-		warn("Element at index %d contains empty host portion of address", (int)index);
+		carp(CARP_WARN, "Element at index %d contains empty host portion of address", (int)index);
 		domain = "";
 	}
 
@@ -129,7 +168,7 @@ static char *get_group_name_from_perl_scalar(SV *scalar)
 		return NULL;
 
 	if (!SvPOK(scalar)) {
-		warn("Group name is not string");
+		carp(CARP_WARN, "Group name is not string");
 		return NULL;
 	}
 
@@ -144,14 +183,14 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name)
 		return NULL;
 
 	if (scalar && !SvROK(scalar)) {
-		warn("Value for group '%s' is not reference", group_name);
+		carp(CARP_WARN, "Value for group '%s' is not reference", group_name);
 		return NULL;
 	}
 
 	scalar_ref = SvRV(scalar);
 
 	if (!scalar_ref || SvTYPE(scalar_ref) != SVt_PVAV) {
-		warn("Value for group '%s' is not ARRAY reference", group_name);
+		carp(CARP_WARN, "Value for group '%s' is not ARRAY reference", group_name);
 		return NULL;
 	}
 
@@ -221,24 +260,14 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 	else
 		*group_scalar = newSV(0);
 
-	if (!*group_scalar)
-		croak("newSV() failed");
-
 	addresses_array = newAV();
-	if (!addresses_array)
-		croak("newAV() failed");
-
 	*addresses_scalar = newRV_noinc((SV *)addresses_array);
-	if (!*addresses_scalar)
-		croak("newRV() failed");
 
 	if (in_group)
 		*address = (*address)->next;
 
 	while (*address && (*address)->domain) {
 		hash = newHV();
-		if (!hash)
-			croak("newHV() failed");
 
 		set_perl_hash_value(hash, "phrase", (*address)->name);
 		set_perl_hash_value(hash, "user", (*address)->mailbox);
@@ -246,12 +275,7 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 		set_perl_hash_value(hash, "comment", (*address)->comment);
 
 		hash_ref = newRV_noinc((SV *)hash);
-		if (!hash_ref)
-			croak("newRV() failed");
-
 		object = sv_bless(hash_ref, package);
-		if (!object)
-			croak("sv_bless() failed");
 
 		av_push(addresses_array, object);
 
@@ -278,7 +302,7 @@ PREINIT:
 	struct message_address *last_address;
 INIT:
 	if (items % 2 == 1) {
-		warn("Odd number of elements in argument list");
+		carp(CARP_WARN, "Odd number of elements in argument list");
 		XSRETURN_UNDEF;
 	}
 CODE:
