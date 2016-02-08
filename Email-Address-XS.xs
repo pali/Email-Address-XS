@@ -163,7 +163,7 @@ static HV *get_perl_class_from_perl_scalar_or_cv(SV *scalar, CV *cv)
 		return get_perl_class_from_perl_cv(cv);
 }
 
-static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, AV *array, I32 index)
+static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, AV *array, I32 index1, I32 index2)
 {
 	HV *hash;
 	SV *scalar;
@@ -174,26 +174,26 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	const char *domain;
 	const char *comment;
 
-	object_ptr = av_fetch(array, index, 0);
+	object_ptr = av_fetch(array, index2, 0);
 	if (!object_ptr) {
-		carp(CARP_WARN, "Element at index %d is NULL", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d is NULL", (int)index1, (int)index2);
 		return;
 	}
 
 	object = *object_ptr;
 	if (!sv_isobject(object) || !sv_derived_from(object, "Email::Address::XS")) {
-		carp(CARP_WARN, "Element at index %d is not Email::Address::XS object", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d is not Email::Address::XS object", (int)index1, (int)index2);
 		return;
 	}
 
 	if (!SvROK(object)) {
-		carp(CARP_WARN, "Element at index %d is not reference", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d is not reference", (int)index1, (int)index2);
 		return;
 	}
 
 	scalar = SvRV(object);
 	if (SvTYPE(scalar) != SVt_PVHV) {
-		carp(CARP_WARN, "Element at index %d is not HASH reference", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d is not HASH reference", (int)index1, (int)index2);
 		return;
 	}
 
@@ -211,17 +211,17 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 		domain = NULL;
 
 	if (!mailbox && !domain) {
-		carp(CARP_WARN, "Element at index %d contains empty address", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d contains empty address", (int)index1, (int)index2);
 		return;
 	}
 
 	if (!mailbox) {
-		carp(CARP_WARN, "Element at index %d contains empty user portion of address", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d contains empty user portion of address", (int)index1, (int)index2);
 		mailbox = "";
 	}
 
 	if (!domain) {
-		carp(CARP_WARN, "Element at index %d contains empty host portion of address", (int)index);
+		carp(CARP_WARN, "Element at index %d/%d contains empty host portion of address", (int)index1, (int)index2);
 		domain = "";
 	}
 
@@ -263,10 +263,10 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name)
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, SV *scalar_group, SV *scalar_list)
+static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, SV *scalar_group, SV *scalar_list, I32 index1)
 {
 	I32 len;
-	I32 index;
+	I32 index2;
 	AV *array;
 	const char *group_name;
 
@@ -281,8 +281,8 @@ static void message_address_add_from_perl_group(struct message_address **first_a
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL, NULL);
 
-	for (index = 0; index < len; ++index)
-		message_address_add_from_perl_array(first_address, last_address, array, index);
+	for (index2 = 0; index2 < len; ++index2)
+		message_address_add_from_perl_array(first_address, last_address, array, index1, index2);
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
@@ -375,7 +375,7 @@ CODE:
 	first_address = NULL;
 	last_address = NULL;
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(&first_address, &last_address, ST(i), ST(i+1));
+		message_address_add_from_perl_group(&first_address, &last_address, ST(i), ST(i+1), i);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
 	RETVAL = newSVpv(string, 0);
