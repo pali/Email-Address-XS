@@ -9,6 +9,10 @@
 use strict;
 use warnings;
 
+use Carp;
+$Carp::Internal{'Test::Builder'} = 1;
+$Carp::Internal{'Test::More'} = 1;
+
 use Test::More tests => 15;
 
 sub silent(&) {
@@ -16,6 +20,15 @@ sub silent(&) {
 	local $SIG{__WARN__} = sub { };
 	return $code->();
 }
+
+sub obj_to_hash {
+	my ($self) = @_;
+	my $hash = {};
+	foreach ( qw(user host phrase comment) ) {
+		$hash->{$_} = $self->{$_} if exists $self->{$_};
+	}
+	return $hash;
+};
 
 #########################
 
@@ -25,9 +38,21 @@ BEGIN {
 
 #########################
 
+require overload;
+my $obj_to_str = overload::Method 'Email::Address::XS', '""';
+my $obj_to_hash = \&obj_to_hash;
+
+# set stringify operator for comparision used in is_deeply
+{
+	local $SIG{__WARN__} = sub { };
+	overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hash;
+};
+
+#########################
+
 subtest 'test method new()' => sub {
 
-	plan tests => 13;
+	plan tests => 14;
 
 	subtest 'test method new() without arguments' => sub {
 		plan tests => 7;
@@ -158,6 +183,18 @@ subtest 'test method new()' => sub {
 		is($address->address(), undef);
 		is($address->comment(), undef);
 		is($address->name(), '');
+		is(silent { $address->format() }, '');
+	};
+
+	subtest 'test method new() with empty strings for user and host and non empty for phrase' => sub {
+		plan tests => 7;
+		my $address = Email::Address::XS->new(user => '', host => '', phrase => 'phrase');
+		is($address->phrase(), 'phrase');
+		is($address->user(), '');
+		is($address->host(), '');
+		is($address->address(), undef);
+		is($address->comment(), undef);
+		is($address->name(), 'phrase');
 		is(silent { $address->format() }, '');
 	};
 
@@ -369,6 +406,12 @@ subtest 'test object stringify' => sub {
 
 	plan tests => 5;
 
+	# set correct stringify operator
+	{
+		local $SIG{__WARN__} = sub { };
+		overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_str;
+	}
+
 	my $address = Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue');
 	is("$address", '"Winston Smith" <winston.smith@recdep.minitrue>');
 
@@ -384,6 +427,11 @@ subtest 'test object stringify' => sub {
 	$address->address(undef);
 	is(silent { "$address" }, '');
 
+	# revert back
+	{
+		local $SIG{__WARN__} = sub { };
+		overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hash;
+	}
 };
 
 #########################
@@ -413,11 +461,36 @@ subtest 'test method format()' => sub {
 
 subtest 'test method parse()' => sub {
 
-	plan tests => 1;
+	plan tests => 5;
+
+	is_deeply(
+		[ silent { Email::Address::XS->parse() } ],
+		[],
+		'test method parse() without argument',
+	);
+
+	is_deeply(
+		[ silent { Email::Address::XS->parse(undef) } ],
+		[],
+		'test method parse() with undef argument',
+	);
+
+	is_deeply(
+		[ Email::Address::XS->parse('') ],
+		[],
+		'test method parse() on empty string',
+	);
+
+	is_deeply(
+		[ silent { Email::Address::XS->parse('invalid_line') } ],
+		[ Email::Address::XS->new(phrase => 'invalid_line') ],
+		'test method parse() on invalid not parsable line',
+	);
 
 	is_deeply(
 		[ Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania') ],
-		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'), Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'), Email::Address::XS->new(address => 'user@oceania') ]
+		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'), Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'), Email::Address::XS->new(address => 'user@oceania') ],
+		'test method parse() on string with valid addresses',
 	);
 
 };
@@ -426,7 +499,7 @@ subtest 'test method parse()' => sub {
 
 subtest 'test method format_email_addresses()' => sub {
 
-	plan tests => 4;
+	plan tests => 6;
 
 	is(
 		format_email_addresses(),
@@ -441,9 +514,21 @@ subtest 'test method format_email_addresses()' => sub {
 	);
 
 	is(
-		silent { format_email_addresses(bless([], 'invalid_package')) },
+		format_email_addresses(Email::Address::XS::Derived->new(user => 'user', host => 'host')),
+		'user_derived_suffix@host',
+		'test method format_email_addresses() with derived object class',
+	);
+
+	is(
+		silent { format_email_addresses(Email::Address::XS::NotDerived->new(user => 'user', host => 'host')) },
 		'',
-		'test method format_email_addresses() with invalid object argument',
+		'test method format_email_addresses() with not derived object class',
+	);
+
+	is(
+		silent { format_email_addresses(bless([], 'invalid_object_class')) },
+		'',
+		'test method format_email_addresses() with invalid object class',
 	);
 
 	is(
@@ -454,10 +539,10 @@ subtest 'test method format_email_addresses()' => sub {
 			Email::Address::XS->new(phrase => 'Mr. Charrington', user => 'charrington"@"shop', host => 'thought.police.oceania'),
 			Email::Address::XS->new(phrase => 'Emmanuel Goldstein', address => 'goldstein@brotherhood.oceania'),
 			Email::Address::XS->new(address => 'user@oceania'),
-			Email::Address::XS->new(phrase => 'Escape " also , characters', address => 'user2@oceania'),
+			Email::Address::XS->new(phrase => 'Escape " also , characters ;', address => 'user2@oceania'),
 			Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania'),
 		),
-		'"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, O\'Brien <o\'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\"@\"shop"@thought.police.oceania>, "Emmanuel Goldstein" <goldstein@brotherhood.oceania>, user@oceania, "Escape \" also , characters" <user2@oceania>, "user5@oceania\" <user6@oceania> , \"" <user4@oceania>',
+		'"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, O\'Brien <o\'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\"@\"shop"@thought.police.oceania>, "Emmanuel Goldstein" <goldstein@brotherhood.oceania>, user@oceania, "Escape \" also , characters ;" <user2@oceania>, "user5@oceania\" <user6@oceania> , \"" <user4@oceania>',
 		'test method format_email_addresses() with list of different type of addresses',
 	);
 
@@ -467,7 +552,13 @@ subtest 'test method format_email_addresses()' => sub {
 
 subtest 'test method parse_email_addresses()' => sub {
 
-	plan tests => 16;
+	plan tests => 21;
+
+	is_deeply(
+		[ silent { parse_email_addresses(undef) } ],
+		[],
+		'test method parse_email_addresses() with undef argument',
+	);
 
 	is_deeply(
 		[ parse_email_addresses('') ],
@@ -477,7 +568,7 @@ subtest 'test method parse_email_addresses()' => sub {
 
 	is_deeply(
 		[ parse_email_addresses('incorrect') ],
-		[],
+		[ Email::Address::XS->new(phrase => 'incorrect') ],
 		'test method parse_email_addresses() on incorrect string',
 	);
 
@@ -569,7 +660,24 @@ subtest 'test method parse_email_addresses()' => sub {
 	);
 
 	is_deeply(
-		[ parse_email_addresses('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, O\'Brien <o\'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\"@\"shop"@thought.police.oceania>, "Emmanuel Goldstein" <goldstein@brotherhood.oceania>, user@oceania, "Escape \" also , characters" <user2@oceania>, "user5@oceania\" <user6@oceania> , \"" <user4@oceania>') ],
+		[ parse_email_addresses('Winston Smith <winston   .smith  @  recdep(comment).      minitrue>' ) ],
+		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue', comment => 'comment') ],
+		'test method parse_email_addresses() on string with obsolate white spaces',
+	);
+
+	is_deeply(
+		[ parse_email_addresses("\302\257\302\257`\302\267.\302\245\302\253P\302\256\303\216\303\221\303\247\342\202\254\303\230fTh\342\202\254\303\220\303\205\302\256K\302\273\302\245.\302\267`\302\257\302\257 <email\@example.com>, \"(> \\\" \\\" <)                              ( ='o'= )                              (\\\")___(\\\")  sWeEtAnGeLtHePrInCeSsOfThEsKy\" <email2\@example.com>, \"(i)cRiStIaN(i)\" <email3\@example.com>, \"(S)MaNu_vuOLeAmMazZaReNimOe(*)MiAo(\@)\" <email4\@example.com>\n") ],
+		[
+			Email::Address::XS->new(phrase => "\302\257\302\257`\302\267.\302\245\302\253P\302\256\303\216\303\221\303\247\342\202\254\303\230fTh\342\202\254\303\220\303\205\302\256K\302\273\302\245.\302\267`\302\257\302\257", user => 'email', host => 'example.com'),
+			Email::Address::XS->new(phrase => '(> " " <)                              ( =\'o\'= )                              (")___(")  sWeEtAnGeLtHePrInCeSsOfThEsKy', user => 'email2', host => 'example.com'),
+			Email::Address::XS->new(phrase => '(i)cRiStIaN(i)', user => 'email3', host => 'example.com'),
+			Email::Address::XS->new(phrase => '(S)MaNu_vuOLeAmMazZaReNimOe(*)MiAo(@)', user => 'email4', host => 'example.com'),
+		],
+		'test method parse_email_addresses() on CVE-2015-7686 string',
+	);
+
+	is_deeply(
+		[ parse_email_addresses('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, O\'Brien <o\'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\"@\"shop"@thought.police.oceania>, "Emmanuel Goldstein" <goldstein@brotherhood.oceania>, user@oceania, "Escape \" also , characters ;" <user2@oceania>, "user5@oceania\" <user6@oceania> , \"" <user4@oceania>') ],
 		[
 			Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'),
 			Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'),
@@ -577,10 +685,22 @@ subtest 'test method parse_email_addresses()' => sub {
 			Email::Address::XS->new(phrase => 'Mr. Charrington', user => 'charrington"@"shop', host => 'thought.police.oceania'),
 			Email::Address::XS->new(phrase => 'Emmanuel Goldstein', address => 'goldstein@brotherhood.oceania'),
 			Email::Address::XS->new(address => 'user@oceania'),
-			Email::Address::XS->new(phrase => 'Escape " also , characters', address => 'user2@oceania'),
+			Email::Address::XS->new(phrase => 'Escape " also , characters ;', address => 'user2@oceania'),
 			Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania'),
 		],
 		'test method parse_email_addresses() on string with lots of different types of addresses',
+	);
+
+	is_deeply(
+		[ parse_email_addresses('winston.smith@recdep.minitrue', 'Email::Address::XS::Derived') ],
+		[ bless({ phrase => undef, user => 'winston.smith', host => 'recdep.minitrue', comment => undef }, 'Email::Address::XS::Derived') ],
+		'test method parse_email_addresses() with second derived class name argument',
+	);
+
+	is_deeply(
+		[ silent { parse_email_addresses('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
+		[],
+		'test method parse_email_addresses() with second not derived class name argument',
 	);
 
 };
@@ -589,7 +709,7 @@ subtest 'test method parse_email_addresses()' => sub {
 
 subtest 'test method format_email_groups()' => sub {
 
-	plan tests => 7;
+	plan tests => 13;
 
 	my $undef = undef;
 
@@ -603,11 +723,33 @@ subtest 'test method format_email_groups()' => sub {
 	my $user3_address = Email::Address::XS->new(address => 'user3@oceania');
 	my $user4_address = Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania');
 
+	my $derived_object = Email::Address::XS::Derived->new(user => 'user', host => 'host');
+	my $not_derived_object = Email::Address::XS::NotDerived->new(user => 'user', host => 'host');
+
+	my $nameless_group = '';
 	my $brotherhood_group = 'Brotherhood';
 	my $minitrue_group = 'Ministry of "Truth"';
 	my $thoughtpolice_group = 'Thought Police';
 	my $users_group = 'users@oceania';
 	my $undisclosed_group = 'undisclosed-recipients';
+
+	is(
+		silent { format_email_groups('first', 'second', 'third') },
+		undef,
+		'test method format_email_groups() with odd number of arguments',
+	);
+
+	is(
+		format_email_groups('name', undef),
+		'name:;',
+		'test method format_email_groups() with invalid type second argument (undef)',
+	);
+
+	is(
+		silent { format_email_groups('name', 'string') },
+		'name:;',
+		'test method format_email_groups() with invalid type second argument (string)',
+	);
 
 	is(
 		format_email_groups(),
@@ -628,9 +770,27 @@ subtest 'test method format_email_groups()' => sub {
 	);
 
 	is(
+		format_email_groups($nameless_group => [ $user_address ]),
+		'"": user@oceania;',
+		'test method format_email_groups() with one email address in nameless group',
+	);
+
+	is(
 		format_email_groups($undisclosed_group => []),
 		'undisclosed-recipients:;',
 		'test method format_email_groups() with empty list of addresses in one named group',
+	);
+
+	is(
+		format_email_groups($undef => [ $derived_object ]),
+		'user_derived_suffix@host',
+		'test method format_email_groups() with derived object class',
+	);
+
+	is(
+		silent { format_email_groups($undef => [ $not_derived_object ]) },
+		'',
+		'test method format_email_groups() with not derived object class',
 	);
 
 	is(
@@ -668,12 +828,50 @@ subtest 'test method format_email_groups()' => sub {
 
 subtest 'test method parse_email_groups()' => sub {
 
-	plan tests => 1;
+	plan tests => 6;
 
 	my $undef = undef;
 
 	is_deeply(
-		[ parse_email_groups('"Ministry of \\"Truth\\"": "Winston Smith" ( <user@oceania>, (Julia _ (Unknown)) <julia_(outer(.)party)@ficdep.minitrue>, ) <winston.smith@recdep.minitrue>, (leading comment) Julia <julia@ficdep.minitrue>;, "Thought Police" (group name comment) : O\'Brien <o\'brien@thought.police.oceania>, Mr. (c)Charrington <(mr.)"charrington\\"@\\"shop"@thought.police.oceania> (junk shop);, user@oceania (unknown_display_name in comment), "Escape \" also , characters" <user2@oceania>, undisclosed-recipients:;, user3@oceania (nested (comment)), Brotherhood(s):"Emmanuel Goldstein"<goldstein@brotherhood.oceania>; , "users@oceania" : "user5@oceania\\" <user6@oceania> , \\"" <user4@oceania>;' ) ],
+		[ silent { parse_email_groups(undef) } ],
+		[],
+		'test method parse_email_groups() with undef argument',
+	);
+
+	is_deeply(
+		[ parse_email_groups('') ],
+		[],
+		'test method parse_email_groups() on empty string',
+	);
+
+	is_deeply(
+		[ parse_email_groups('incorrect') ],
+		[
+			$undef => [
+				Email::Address::XS->new(phrase => 'incorrect'),
+			],
+		],
+		'test method parse_email_groups() on incorrect string',
+	);
+
+	is_deeply(
+		[ parse_email_groups('winston.smith@recdep.minitrue', 'Email::Address::XS::Derived') ],
+		[
+			$undef => [
+				bless({ phrase => undef, user => 'winston.smith', host => 'recdep.minitrue', comment => undef }, 'Email::Address::XS::Derived'),
+			],
+		],
+		'test method parse_email_groups() with second derived class name argument',
+	);
+
+	is_deeply(
+		[ silent { parse_email_groups('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
+		[],
+		'test method parse_email_groups() with second not derived class name argument',
+	);
+
+	is_deeply(
+		[ parse_email_groups('"Ministry of \\"Truth\\"": "Winston Smith" ( <user@oceania>, (Julia _ (Unknown)) <julia_(outer(.)party)@ficdep.minitrue>, ) <winston.smith@recdep.minitrue>, (leading comment) Julia <julia@ficdep.minitrue>;, "Thought Police" (group name comment) : O\'Brien <o\'brien@thought.police.oceania>, Mr. (c)Charrington <(mr.)"charrington\\"@\\"shop"@thought.police.oceania> (junk shop);, user@oceania (unknown_display_name in comment), "Escape \" also , characters" <user2@oceania>, undisclosed-recipients:;, user3@oceania (nested (comment)), Brotherhood(s):"Emmanuel Goldstein"<goldstein@brotherhood.oceania>; , "users@oceania" : "user5@oceania\\" <user6@oceania> , \\"" <user4@oceania>;, "":;' ) ],
 		[
 			'Ministry of "Truth"' => [
 				Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'),
@@ -697,7 +895,28 @@ subtest 'test method parse_email_groups()' => sub {
 			'users@oceania' => [
 				Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania'),
 			],
+			"" => [],
 		],
 	);
 
 };
+
+package Email::Address::XS::Derived;
+
+use base 'Email::Address::XS';
+
+sub user {
+	my ($self, @args) = @_;
+	$args[0] .= "_derived_suffix" if @args and defined $args[0];
+	return $self->SUPER::user(@args);
+}
+
+package Email::Address::XS::NotDerived;
+
+sub new {
+	return bless {};
+}
+
+sub user {
+	return 'not_derived';
+}
