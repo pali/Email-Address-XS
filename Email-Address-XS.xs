@@ -163,7 +163,7 @@ static HV *get_perl_class_from_perl_scalar_or_cv(SV *scalar, CV *cv)
 		return get_perl_class_from_perl_cv(cv);
 }
 
-static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, AV *array, I32 index1, I32 index2)
+static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, AV *array, I32 index1, I32 index2, const char *class)
 {
 	HV *hash;
 	SV *scalar;
@@ -181,8 +181,8 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	}
 
 	object = *object_ptr;
-	if (!sv_isobject(object) || !sv_derived_from(object, "Email::Address::XS")) {
-		carp(CARP_WARN, "Element at index %d/%d is not Email::Address::XS object", (int)index1, (int)index2);
+	if (!sv_isobject(object) || !sv_derived_from(object, class)) {
+		carp(CARP_WARN, "Element at index %d/%d is not %s object", (int)index1, (int)index2, class);
 		return;
 	}
 
@@ -263,7 +263,7 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name)
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, SV *scalar_group, SV *scalar_list, I32 index1)
+static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
 {
 	I32 len;
 	I32 index2;
@@ -282,7 +282,7 @@ static void message_address_add_from_perl_group(struct message_address **first_a
 		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL, NULL);
 
 	for (index2 = 0; index2 < len; ++index2)
-		message_address_add_from_perl_array(first_address, last_address, array, index1, index2);
+		message_address_add_from_perl_array(first_address, last_address, array, index1, index2, class);
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
@@ -366,6 +366,8 @@ PREINIT:
 	char *string;
 	struct message_address *first_address;
 	struct message_address *last_address;
+INPUT:
+	const char *this_class_name = "$Package";
 INIT:
 	if (items % 2 == 1) {
 		carp(CARP_WARN, "Odd number of elements in argument list");
@@ -375,7 +377,7 @@ CODE:
 	first_address = NULL;
 	last_address = NULL;
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(&first_address, &last_address, ST(i), ST(i+1), i);
+		message_address_add_from_perl_group(&first_address, &last_address, ST(i), ST(i+1), i, this_class_name);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
 	RETVAL = newSVpv(string, 0);
@@ -396,12 +398,14 @@ PREINIT:
 	const char *class_name;
 	struct message_address *address;
 	struct message_address *first_address;
+INPUT:
+	const char *this_class_name = "$Package";
 INIT:
 	input = get_string_from_perl_scalar(string, "string");
 	hv_class = get_perl_class_from_perl_scalar_or_cv(items >= 2 ? class : NULL, cv);
-	if (items >= 2 && !sv_derived_from(class, "Email::Address::XS")) {
+	if (items >= 2 && !sv_derived_from(class, this_class_name)) {
 		class_name = HvNAME(hv_class);
-		carp(CARP_WARN, "Class %s is not derived from Email::Address::XS", (class_name ? class_name : "(unknown)"));
+		carp(CARP_WARN, "Class %s is not derived from %s", (class_name ? class_name : "(unknown)"), this_class_name);
 		XSRETURN_EMPTY;
 	}
 PPCODE:
