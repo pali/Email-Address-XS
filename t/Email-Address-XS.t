@@ -709,7 +709,7 @@ subtest 'test method parse_email_addresses()' => sub {
 
 subtest 'test method format_email_groups()' => sub {
 
-	plan tests => 13;
+	plan tests => 15;
 
 	my $undef = undef;
 
@@ -723,6 +723,9 @@ subtest 'test method format_email_groups()' => sub {
 	my $user3_address = Email::Address::XS->new(address => 'user3@oceania');
 	my $user4_address = Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania');
 
+	my $winstons_mime_address = Email::Address::XS->new(phrase => '=?US-ASCII?Q?Winston?= Smith', address => 'winston.smith@recdep.minitrue');
+	my $julias_mime_address = Email::Address::XS->new(phrase => '=?US-ASCII?Q?Julia?=', address => 'julia@ficdep.minitrue');
+
 	my $derived_object = Email::Address::XS::Derived->new(user => 'user', host => 'host');
 	my $not_derived_object = Email::Address::XS::NotDerived->new(user => 'user', host => 'host');
 
@@ -732,6 +735,7 @@ subtest 'test method format_email_groups()' => sub {
 	my $thoughtpolice_group = 'Thought Police';
 	my $users_group = 'users@oceania';
 	my $undisclosed_group = 'undisclosed-recipients';
+	my $mime_group = '=?US-ASCII?Q?MIME?=';
 
 	is(
 		silent { format_email_groups('first', 'second', 'third') },
@@ -810,6 +814,20 @@ subtest 'test method format_email_groups()' => sub {
 
 	is(
 		format_email_groups(
+			$mime_group => [ $winstons_mime_address, $julias_mime_address ],
+		),
+		'=?US-ASCII?Q?MIME?=: =?US-ASCII?Q?Winston?= Smith <winston.smith@recdep.minitrue>, =?US-ASCII?Q?Julia?= <julia@ficdep.minitrue>;',
+		'test method format_email_groups() that does not quote MIME encoded strings',
+	);
+
+	is(
+		format_email_groups("\x{2764} \x{2600}" => [ Email::Address::XS->new(phrase => "\x{2606} \x{2602}", user => "\x{263b} \x{265e}", host => "\x{262f}.\x{262d}", comment => "\x{2622} \x{20ac}") ]),
+		"\"\x{2764} \x{2600}\": \"\x{2606} \x{2602}\" <\"\x{263b} \x{265e}\"@\x{262f}.\x{262d}> (\x{2622} \x{20ac});",
+		'test method format_email_groups() that preserves unicode characters and UTF-8 status flag',
+	);
+
+	is(
+		format_email_groups(
 			$minitrue_group => [ $winstons_address, $julias_address ],
 			$thoughtpolice_group => [ $obriens_address, $charringtons_address ],
 			$undef => [ $user_address, $user2_address ],
@@ -828,7 +846,7 @@ subtest 'test method format_email_groups()' => sub {
 
 subtest 'test method parse_email_groups()' => sub {
 
-	plan tests => 6;
+	plan tests => 8;
 
 	my $undef = undef;
 
@@ -868,6 +886,23 @@ subtest 'test method parse_email_groups()' => sub {
 		[ silent { parse_email_groups('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
 		[],
 		'test method parse_email_groups() with second not derived class name argument',
+	);
+
+	is_deeply(
+		[ parse_email_groups('=?US-ASCII?Q?MIME=3A=3B?= : =?US-ASCII?Q?Winston=3A_Smith?= <winston.smith@recdep.minitrue>, =?US-ASCII?Q?Julia=3A=3B_?= <julia@ficdep.minitrue>') ],
+		[
+			'=?US-ASCII?Q?MIME=3A=3B?=' => [
+				Email::Address::XS->new(phrase => '=?US-ASCII?Q?Winston=3A_Smith?=', address => 'winston.smith@recdep.minitrue'),
+				Email::Address::XS->new(phrase => '=?US-ASCII?Q?Julia=3A=3B_?=', address => 'julia@ficdep.minitrue'),
+			],
+		],
+		'test method parse_email_groups() on MIME string with encoded colons and semicolons',
+	);
+
+	is_deeply(
+		[ parse_email_groups("\"\x{2764} \x{2600}\": \"\x{2606} \x{2602}\" <\"\x{263b} \x{265e}\"@\x{262f}.\x{262d}> (\x{2622} \x{20ac});") ],
+		[ "\x{2764} \x{2600}" => [ Email::Address::XS->new(phrase => "\x{2606} \x{2602}", user => "\x{263b} \x{265e}", host => "\x{262f}.\x{262d}", comment => "\x{2622} \x{20ac}") ] ],
+		'test method parse_email_groups() that preserve unicode characters and UTF-8 status flag',
 	);
 
 	is_deeply(
