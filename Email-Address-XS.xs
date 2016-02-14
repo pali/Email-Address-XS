@@ -58,7 +58,7 @@ static void carp(bool fatal, const char *format, ...)
 	SvREFCNT_dec(scalar);
 }
 
-static const char *get_perl_hash_value(HV *hash, const char *key)
+static const char *get_perl_hash_value(HV *hash, const char *key, bool *utf8)
 {
 	I32 klen;
 	SV *scalar;
@@ -85,10 +85,13 @@ static const char *get_perl_hash_value(HV *hash, const char *key)
 		return NULL;
 	}
 
+	if (!*utf8 && SvUTF8(scalar))
+		*utf8 = true;
+
 	return SvPV_nolen(scalar);
 }
 
-static void set_perl_hash_value(HV *hash, const char *key, const char *value)
+static void set_perl_hash_value(HV *hash, const char *key, const char *value, bool utf8)
 {
 	I32 klen;
 	SV *scalar;
@@ -99,6 +102,9 @@ static void set_perl_hash_value(HV *hash, const char *key, const char *value)
 		scalar = newSVpv(value, 0);
 	else
 		scalar = newSV(0);
+
+	if (value && utf8)
+		SvUTF8_on(scalar);
 
 	hv_store(hash, key, klen, scalar, 0);
 }
@@ -163,7 +169,7 @@ static HV *get_perl_class_from_perl_scalar_or_cv(SV *scalar, CV *cv)
 		return get_perl_class_from_perl_cv(cv);
 }
 
-static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, AV *array, I32 index1, I32 index2, const char *class)
+static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, bool *utf8, AV *array, I32 index1, I32 index2, const char *class)
 {
 	HV *hash;
 	SV *scalar;
@@ -199,10 +205,10 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 
 	hash = (HV *)scalar;
 
-	name = get_perl_hash_value(hash, "phrase");
-	mailbox = get_perl_hash_value(hash, "user");
-	domain = get_perl_hash_value(hash, "host");
-	comment = get_perl_hash_value(hash, "comment");
+	name = get_perl_hash_value(hash, "phrase", utf8);
+	mailbox = get_perl_hash_value(hash, "user", utf8);
+	domain = get_perl_hash_value(hash, "host", utf8);
+	comment = get_perl_hash_value(hash, "comment", utf8);
 
 	if (mailbox && !mailbox[0])
 		mailbox = NULL;
@@ -263,7 +269,7 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name)
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
+static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, bool *utf8, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
 {
 	I32 len;
 	I32 index2;
@@ -272,6 +278,9 @@ static void message_address_add_from_perl_group(struct message_address **first_a
 
 	group_name = get_group_name_from_perl_scalar(scalar_group);
 	array = get_perl_array_from_scalar(scalar_list, group_name);
+
+	if (!*utf8 && SvUTF8(scalar_group))
+		*utf8 = true;
 
 	if (array)
 		len = av_len(array) + 1;
@@ -282,7 +291,7 @@ static void message_address_add_from_perl_group(struct message_address **first_a
 		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL, NULL);
 
 	for (index2 = 0; index2 < len; ++index2)
-		message_address_add_from_perl_array(first_address, last_address, array, index1, index2, class);
+		message_address_add_from_perl_array(first_address, last_address, utf8, array, index1, index2, class);
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
@@ -308,7 +317,7 @@ static int count_address_groups(struct message_address *first_address)
 	return count;
 }
 
-static bool get_next_perl_address_group(struct message_address **address, SV **group_scalar, SV **addresses_scalar, HV *class)
+static bool get_next_perl_address_group(struct message_address **address, SV **group_scalar, SV **addresses_scalar, HV *class, bool utf8)
 {
 	HV *hash;
 	SV *object;
@@ -326,6 +335,9 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 	else
 		*group_scalar = newSV(0);
 
+	if (in_group && (*address)->mailbox && utf8)
+		SvUTF8_on(*group_scalar);
+
 	addresses_array = newAV();
 	*addresses_scalar = newRV_noinc((SV *)addresses_array);
 
@@ -335,10 +347,10 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 	while (*address && (*address)->domain) {
 		hash = newHV();
 
-		set_perl_hash_value(hash, "phrase", (*address)->name);
-		set_perl_hash_value(hash, "user", ( (*address)->mailbox && (*address)->mailbox[0] ) ? (*address)->mailbox : NULL);
-		set_perl_hash_value(hash, "host", ( (*address)->domain && (*address)->domain[0] ) ? (*address)->domain : NULL);
-		set_perl_hash_value(hash, "comment", (*address)->comment);
+		set_perl_hash_value(hash, "phrase", (*address)->name, utf8);
+		set_perl_hash_value(hash, "user", ( (*address)->mailbox && (*address)->mailbox[0] ) ? (*address)->mailbox : NULL, utf8);
+		set_perl_hash_value(hash, "host", ( (*address)->domain && (*address)->domain[0] ) ? (*address)->domain : NULL, utf8);
+		set_perl_hash_value(hash, "comment", (*address)->comment, utf8);
 
 		hash_ref = newRV_noinc((SV *)hash);
 		object = sv_bless(hash_ref, class);
@@ -363,6 +375,7 @@ SV *
 format_email_groups(...)
 PREINIT:
 	I32 i;
+	bool utf8;
 	char *string;
 	struct message_address *first_address;
 	struct message_address *last_address;
@@ -374,13 +387,16 @@ INIT:
 		XSRETURN_UNDEF;
 	}
 CODE:
+	utf8 = false;
 	first_address = NULL;
 	last_address = NULL;
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(&first_address, &last_address, ST(i), ST(i+1), i, this_class_name);
+		message_address_add_from_perl_group(&first_address, &last_address, &utf8, ST(i), ST(i+1), i, this_class_name);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
 	RETVAL = newSVpv(string, 0);
+	if (utf8)
+		SvUTF8_on(RETVAL);
 	free(string);
 OUTPUT:
 	RETVAL
@@ -394,6 +410,7 @@ PREINIT:
 	HV *hv_class;
 	SV *group_scalar;
 	SV *addresses_scalar;
+	bool utf8;
 	const char *input;
 	const char *class_name;
 	struct message_address *address;
@@ -401,6 +418,7 @@ PREINIT:
 INPUT:
 	const char *this_class_name = "$Package";
 INIT:
+	utf8 = SvUTF8(string);
 	input = get_string_from_perl_scalar(string, "string");
 	hv_class = get_perl_class_from_perl_scalar_or_cv(items >= 2 ? class : NULL, cv);
 	if (items >= 2 && !sv_derived_from(class, this_class_name)) {
@@ -413,7 +431,7 @@ PPCODE:
 	count = count_address_groups(first_address);
 	EXTEND(SP, count * 2);
 	address = first_address;
-	while (get_next_perl_address_group(&address, &group_scalar, &addresses_scalar, hv_class)) {
+	while (get_next_perl_address_group(&address, &group_scalar, &addresses_scalar, hv_class, utf8)) {
 		PUSHs(sv_2mortal(group_scalar));
 		PUSHs(sv_2mortal(addresses_scalar));
 	}
