@@ -694,9 +694,8 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	if (ret <= 0) {
 		/* end of input or parsing local-part failed */
 		ctx->addr.invalid_syntax = true;
-		if (ret == 0)
-			ret = -1;
-	} else if (*ctx->parser.data == '@') {
+	}
+	if (ret != 0 && *ctx->parser.data == '@') {
 		ret2 = parse_domain(ctx);
 		if (ret2 <= 0)
 			ret = ret2;
@@ -755,7 +754,7 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 		}
 		ctx->parser.data = start;
 		ret = parse_addr_spec(ctx);
-		if (ctx->addr.invalid_syntax && ctx->addr.mailbox && !ctx->addr.domain) {
+		if (ctx->addr.invalid_syntax && !ctx->addr.name && ctx->addr.mailbox && !ctx->addr.domain) {
 			ctx->addr.name = ctx->addr.mailbox;
 			ctx->addr.mailbox = NULL;
 		}
