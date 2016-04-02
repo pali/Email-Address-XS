@@ -968,7 +968,7 @@ void message_address_write(char **output, const struct message_address *addr)
 					else
 						str_append_maybe_escape(str, addr->mailbox, true);
 				} else {
-					/* empty group name needs to be escaped */
+					/* empty group name needs to be quoted */
 					str_append(str, "\"\"");
 				}
 				str_append(str, ": ");
