@@ -889,7 +889,7 @@ subtest 'test method parse_email_groups()' => sub {
 	);
 
 	is_deeply(
-		[ parse_email_groups('=?US-ASCII?Q?MIME=3A=3B?= : =?US-ASCII?Q?Winston=3A_Smith?= <winston.smith@recdep.minitrue>, =?US-ASCII?Q?Julia=3A=3B_?= <julia@ficdep.minitrue>') ],
+		[ parse_email_groups('=?US-ASCII?Q?MIME=3A=3B?= : =?US-ASCII?Q?Winston=3A_Smith?= <winston.smith@recdep.minitrue>, =?US-ASCII?Q?Julia=3A=3B_?= <julia@ficdep.minitrue> ;') ],
 		[
 			'=?US-ASCII?Q?MIME=3A=3B?=' => [
 				Email::Address::XS->new(phrase => '=?US-ASCII?Q?Winston=3A_Smith?=', address => 'winston.smith@recdep.minitrue'),
