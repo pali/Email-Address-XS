@@ -552,7 +552,7 @@ subtest 'test method format_email_addresses()' => sub {
 
 subtest 'test method parse_email_addresses()' => sub {
 
-	plan tests => 22;
+	plan tests => 23;
 
 	is_deeply(
 		[ silent { parse_email_addresses(undef) } ],
@@ -582,6 +582,12 @@ subtest 'test method parse_email_addresses()' => sub {
 		[ parse_email_addresses('"Winston Smith" <winston.smith@recdep.minitrue>') ],
 		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue') ],
 		'test method parse_email_addresses() on string with quoted phrase',
+	);
+
+	is_deeply(
+		[ parse_email_addresses('"Winston Smith" "suffix" suffix2 <winston.smith@recdep.minitrue>') ],
+		[ Email::Address::XS->new(phrase => 'Winston Smith suffix suffix2', address => 'winston.smith@recdep.minitrue') ],
+		'test method parse_email_addresses() on string with more words in phrase',
 	);
 
 	is_deeply(
