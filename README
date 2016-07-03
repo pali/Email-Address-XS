@@ -19,7 +19,7 @@ Email::Address::XS module was created to finally fix CVE-2015-7686.
 
 Existing applications that use Email::Address module could be easily
 switched to Email::Address::XS module. In most cases only changing
-'use Email::Address' to 'use Email::Address::X' and replacing every
+'use Email::Address' to 'use Email::Address::XS' and replacing every
 'Email::Address' occurrence with 'Email::Address::XS' is sufficient.
 
 So unlike Email::Address, this module does not use regular expressions
