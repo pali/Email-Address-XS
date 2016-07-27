@@ -354,7 +354,7 @@ sub comment {
 	return $self->{comment} unless @args;
 	return $self->{comment} = undef unless defined $args[0];
 	my $count = 0;
-	foreach ( split('', $args[0]) ) {
+	foreach ( split //, $args[0] ) {
 		$count++ if $_ eq '(';
 		$count-- if $_ eq ')';
 		last if $count < 0;
