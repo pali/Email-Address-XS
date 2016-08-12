@@ -406,7 +406,9 @@ use overload '""' => sub {
 	my ($self) = @_;
 	return $self->format() unless defined $STRINGIFY;
 	carp 'Variable $Email::Address::XS::STRINGIFY is deprecated; subclass instead';
-	return $self->can($STRINGIFY)->($self);
+	my $method = $self->can($STRINGIFY);
+	croak 'Stringify method ' . $STRINGIFY . ' does not exist' unless defined $method;
+	return $method->($self);
 };
 
 =back
