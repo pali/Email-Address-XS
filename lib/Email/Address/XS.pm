@@ -30,20 +30,20 @@ Email::Address::XS - RFC 2822 Parse and format email groups or addresses
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
   print $julias_address->format();
 
-  my $user_address = Email::Address::XS->new(address => 'user@oceania');
-  print $user_address->user();
+  my $users_address = Email::Address::XS->new(address => 'user@oceania');
+  print $users_address->user();
 
 
   use Email::Address::XS qw(format_email_addresses format_email_groups parse_email_addresses parse_email_groups);
   my $undef = undef;
 
-  my $addresses_string = format_email_addresses($winstons_address, $julias_address, $user_address);
+  my $addresses_string = format_email_addresses($winstons_address, $julias_address, $users_address);
   print $addresses_string;
 
   my @addresses = parse_email_addresses($addresses_string);
-  print 'address: ' . $_->address() . '\n' foreach @addresses;
+  print 'address: ' . $_->address() . "\n" foreach @addresses;
 
-  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $user_address ]);
+  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $users_address ]);
   print $groups_string;
 
   my @groups = parse_email_groups($groups_string);
@@ -98,7 +98,7 @@ C<format_email_groups>
 
   my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston@recdep.minitrue');
   my $julias_address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
-  my @addresses = ( $winstons_address, $julias_address );
+  my @addresses = ($winstons_address, $julias_address);
   my $string = format_email_addresses(@addresses);
   print $string;
 
@@ -119,9 +119,9 @@ sub format_email_addresses {
 
   my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue');
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
-  my $user_address = Email::Address::XS->new(address => 'user@oceania');
+  my $users_address = Email::Address::XS->new(address => 'user@oceania');
 
-  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $user_address ]);
+  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $users_address ]);
   print $groups_string;
 
   my $undisclosed_string = format_email_groups('undisclosed-recipients' => []);
@@ -158,7 +158,7 @@ sub parse_email_addresses {
 
   my $string = 'Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, user@oceania, undisclosed-recipients:;';
   my @groups = parse_email_groups($string);
-  # @groups now contains list ( 'Brotherhood' => [ $winstons_object, $julias_object ], $undef => [ $user_object ], 'undisclosed-recipients' => [])
+  # @groups now contains list ('Brotherhood' => [ $winstons_object, $julias_object ], $undef => [ $users_object ], 'undisclosed-recipients' => [])
 
 Like C<parse_email_addresses> but this method returns a list of pairs:
 a group display name and a reference to list of addresses which
@@ -179,7 +179,7 @@ or merging.
   my $empty_address = Email::Address::XS->new();
   my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue', comment => 'Records Department');
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
-  my $user_address = Email::Address::XS->new(address => 'user@oceania');
+  my $users_address = Email::Address::XS->new(address => 'user@oceania');
   my $only_name = Email::Address::XS->new(phrase => 'Name');
 
 Constructs and returns a new C<Email::Address::XS> object. Takes named

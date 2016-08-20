@@ -729,11 +729,11 @@ subtest 'test method format_email_groups()' => sub {
 	my $julias_address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
 	my $obriens_address = Email::Address::XS->new(phrase => "O'Brien", user => "o'brien", host => 'thought.police.oceania');
 	my $charringtons_address = Email::Address::XS->new(phrase => 'Mr. Charrington', user => 'charrington"@"shop', host => 'thought.police.oceania');
-	my $goldstein_address = Email::Address::XS->new(phrase => 'Emmanuel Goldstein', address => 'goldstein@brotherhood.oceania');
-	my $user_address = Email::Address::XS->new(address => 'user@oceania');
-	my $user2_address = Email::Address::XS->new(phrase => 'Escape " also , characters', address => 'user2@oceania');
-	my $user3_address = Email::Address::XS->new(address => 'user3@oceania');
-	my $user4_address = Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania');
+	my $goldsteins_address = Email::Address::XS->new(phrase => 'Emmanuel Goldstein', address => 'goldstein@brotherhood.oceania');
+	my $users_address = Email::Address::XS->new(address => 'user@oceania');
+	my $user2s_address = Email::Address::XS->new(phrase => 'Escape " also , characters', address => 'user2@oceania');
+	my $user3s_address = Email::Address::XS->new(address => 'user3@oceania');
+	my $user4s_address = Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania');
 
 	my $winstons_mime_address = Email::Address::XS->new(phrase => '=?US-ASCII?Q?Winston?= Smith', address => 'winston.smith@recdep.minitrue');
 	my $julias_mime_address = Email::Address::XS->new(phrase => '=?US-ASCII?Q?Julia?=', address => 'julia@ficdep.minitrue');
@@ -780,13 +780,13 @@ subtest 'test method format_email_groups()' => sub {
 	);
 
 	is(
-		format_email_groups($undef => [ $user_address ]),
+		format_email_groups($undef => [ $users_address ]),
 		'user@oceania',
 		'test method format_email_groups() with one email address in undef group',
 	);
 
 	is(
-		format_email_groups($nameless_group => [ $user_address ]),
+		format_email_groups($nameless_group => [ $users_address ]),
 		'"": user@oceania;',
 		'test method format_email_groups() with one email address in nameless group',
 	);
@@ -818,7 +818,7 @@ subtest 'test method format_email_groups()' => sub {
 	is(
 		format_email_groups(
 			$brotherhood_group => [ $winstons_address, $julias_address ],
-			$undef => [ $user_address ]
+			$undef => [ $users_address ]
 		),
 		'Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, user@oceania',
 		'test method format_email_groups() with addresses in two groups',
@@ -842,11 +842,11 @@ subtest 'test method format_email_groups()' => sub {
 		format_email_groups(
 			$minitrue_group => [ $winstons_address, $julias_address ],
 			$thoughtpolice_group => [ $obriens_address, $charringtons_address ],
-			$undef => [ $user_address, $user2_address ],
+			$undef => [ $users_address, $user2s_address ],
 			$undisclosed_group => [],
-			$undef => [ $user3_address ],
-			$brotherhood_group => [ $goldstein_address ],
-			$users_group => [ $user4_address ],
+			$undef => [ $user3s_address ],
+			$brotherhood_group => [ $goldsteins_address ],
+			$users_group => [ $user4s_address ],
 		),
 		'"Ministry of \\"Truth\\"": "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, "Thought Police": O\'Brien <o\'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\\"@\\"shop"@thought.police.oceania>;, user@oceania, "Escape \" also , characters" <user2@oceania>, undisclosed-recipients:;, user3@oceania, Brotherhood: "Emmanuel Goldstein" <goldstein@brotherhood.oceania>;, "users@oceania": "user5@oceania\\" <user6@oceania> , \\"" <user4@oceania>;',
 		'test method format_email_groups() with different type of addresses in more groups',
