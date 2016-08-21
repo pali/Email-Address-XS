@@ -169,6 +169,11 @@ static HV *get_perl_class_from_perl_scalar_or_cv(SV *scalar, CV *cv)
 		return get_perl_class_from_perl_cv(cv);
 }
 
+static bool is_class_object(const char *class, SV *object)
+{
+	return sv_isobject(object) && sv_derived_from(object, class);
+}
+
 static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, bool *utf8, AV *array, I32 index1, I32 index2, const char *class)
 {
 	HV *hash;
@@ -187,7 +192,7 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	}
 
 	object = *object_ptr;
-	if (!sv_isobject(object) || !sv_derived_from(object, class)) {
+	if (!is_class_object(class, object)) {
 		carp(CARP_WARN, "Element at index %d/%d is not %s object", (int)index1, (int)index2, class);
 		return;
 	}
@@ -453,3 +458,10 @@ split_address(string, OUTLIST mailbox, OUTLIST domain)
 CLEANUP:
 	free(mailbox);
 	free(domain);
+
+void
+is_obj(class, object)
+	const char *class
+	SV *object
+CODE:
+	is_class_object(class, object) ? XSRETURN_YES : XSRETURN_NO;

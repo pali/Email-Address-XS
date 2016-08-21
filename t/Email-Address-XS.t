@@ -13,7 +13,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 15;
+use Test::More tests => 16;
 
 sub silent(&) {
 	my ($code) = @_;
@@ -953,6 +953,34 @@ subtest 'test method parse_email_groups()' => sub {
 	);
 
 };
+
+#########################
+
+subtest 'test method is_obj()' => sub {
+
+	plan tests => 9;
+
+	my $undef = undef;
+	my $str = 'str';
+	my $str_ref = \$str;
+	my $address = Email::Address::XS->new();
+	my $address_ref = \$address;
+	my $derived = Email::Address::XS::Derived->new();
+	my $not_derived = Email::Address::XS::NotDerived->new();
+
+	ok(!Email::Address::XS->is_obj(undef), 'test method is_obj() on undef');
+	ok(!Email::Address::XS->is_obj('string'), 'test method is_obj() on string');
+	ok(!Email::Address::XS->is_obj($undef), 'test method is_obj() on undef variable');
+	ok(!Email::Address::XS->is_obj($str), 'test method is_obj() on string variable');
+	ok(!Email::Address::XS->is_obj($str_ref), 'test method is_obj() on string reference');
+	ok(Email::Address::XS->is_obj($address), 'test method is_obj() on Email::Address::XS object');
+	ok(!Email::Address::XS->is_obj($address_ref), 'test method is_obj() on reference of Email::Address::XS object');
+	ok(Email::Address::XS->is_obj($derived), 'test method is_obj() on Email::Address::XS derived object');
+	ok(!Email::Address::XS->is_obj($not_derived), 'test method is_obj() on Email::Address::XS not derived object');
+
+};
+
+#########################
 
 package Email::Address::XS::Derived;
 
