@@ -30,8 +30,8 @@ Email::Address::XS - RFC 2822 Parse and format email groups or addresses
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
   print $julias_address->format();
 
-  my $users_address = Email::Address::XS->new(address => 'user@oceania');
-  print $users_address->user();
+  my $users_address = Email::Address::XS->parse('user <user@oceania>');
+  print $users_address->host();
 
 
   use Email::Address::XS qw(format_email_addresses format_email_groups parse_email_addresses parse_email_groups);
@@ -229,6 +229,24 @@ sub new {
 	}
 
 	return $self;
+}
+
+=item parse
+
+  my $winstons_address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)');
+  my @user_addresses = Email::Address::XS->parse('user1@oceania, user2@oceania');
+
+Parses input string and returns list of Email::Address::XS objects. Same
+as function C<parse_email_addresses> but this one is class method.
+
+In scalar context it returns just first parsed object.
+
+=cut
+
+sub parse {
+	my ($class, $string) = @_;
+	my @addresses = parse_email_addresses($string, $class);
+	return wantarray ? @addresses : $addresses[0];
 }
 
 =back
@@ -437,19 +455,6 @@ sub disable_cache {
 
 sub enable_cache {
 	carp 'Method enable_cache is deprecated and does nothing';
-}
-
-=pod
-
-Deprecated class method C<parse> takes two arguments class name and
-input string. It just calls method C<parse_email_addresses>. Usage is
-same as in old L<Email::Address module|Email::Address/parse>.
-
-=cut
-
-sub parse {
-	my ($class, $string) = @_;
-	return parse_email_addresses($string, $class);
 }
 
 =pod

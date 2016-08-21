@@ -461,7 +461,7 @@ subtest 'test method format()' => sub {
 
 subtest 'test method parse()' => sub {
 
-	plan tests => 5;
+	plan tests => 6;
 
 	is_deeply(
 		[ silent { Email::Address::XS->parse() } ],
@@ -491,6 +491,12 @@ subtest 'test method parse()' => sub {
 		[ Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania') ],
 		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'), Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'), Email::Address::XS->new(address => 'user@oceania') ],
 		'test method parse() on string with valid addresses',
+	);
+
+	is_deeply(
+		scalar Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania'),
+		Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'),
+		'test method parse() in scalar context',
 	);
 
 };
