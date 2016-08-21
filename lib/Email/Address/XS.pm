@@ -181,10 +181,15 @@ or merging.
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
   my $users_address = Email::Address::XS->new(address => 'user@oceania');
   my $only_name = Email::Address::XS->new(phrase => 'Name');
+  my $copy_of_winstons_address = Email::Address::XS->new(copy => $winstons_address);
 
 Constructs and returns a new C<Email::Address::XS> object. Takes named
-list of arguments: phrase, address, user, host and comment. Argument
-address takes precedence over user and host.
+list of arguments: phrase, address, user, host, comment and copy.
+Argument address takes precedence over user and host.
+
+When argument copy is specifed, then it expects Email::Address::XS
+object and cloned copy of this object is returned. In this case all
+other parameters are ignored.
 
 Old syntax L<from the Email::Address module|Email::Address/new> is
 supported too. Takes one to four positional arguments: phrase, address
@@ -196,7 +201,7 @@ ignored. Passing it throw warning.
 sub new {
 	my ($class, @args) = @_;
 
-	my %hash_keys = (phrase => 1, address => 1, user => 1, host => 1, comment => 1);
+	my %hash_keys = (phrase => 1, address => 1, user => 1, host => 1, comment => 1, copy => 1);
 	my $is_hash;
 	if ( scalar @args == 2 and defined $args[0] ) {
 		$is_hash = 1 if exists $hash_keys{$args[0]};
@@ -214,6 +219,18 @@ sub new {
 		$args{comment} = $args[2] if scalar @args > 2;
 		$args{address} = $args[1] if scalar @args > 1;
 		$args{phrase} = $args[0] if scalar @args > 0;
+	}
+
+	if ( exists $args{copy} ) {
+		if ( $class->is_obj($args{copy}) ) {
+			$args{phrase} = $args{copy}->phrase();
+			$args{comment} = $args{copy}->comment();
+			$args{user} = $args{copy}->user();
+			$args{host} = $args{copy}->host();
+			delete $args{address};
+		} else {
+			carp 'Named argument copy does not contain valid object';
+		}
 	}
 
 	my $self = bless {}, $class;

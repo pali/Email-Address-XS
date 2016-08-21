@@ -52,7 +52,7 @@ my $obj_to_hash = \&obj_to_hash;
 
 subtest 'test method new()' => sub {
 
-	plan tests => 14;
+	plan tests => 15;
 
 	subtest 'test method new() without arguments' => sub {
 		plan tests => 7;
@@ -172,6 +172,33 @@ subtest 'test method new()' => sub {
 		is($address->comment(), undef);
 		is($address->name(), 'address');
 		is($address->format(), 'address <user@oceania>');
+	};
+
+	subtest 'test method new() with copy argument' => sub {
+		plan tests => 15;
+		my $address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
+		my $copy = Email::Address::XS->new(copy => $address);
+		is($copy->phrase(), 'Julia');
+		is($copy->user(), 'julia');
+		is($copy->host(), 'ficdep.minitrue');
+		is($copy->address(), 'julia@ficdep.minitrue');
+		is($copy->comment(), undef);
+		$copy->phrase('Winston Smith');
+		$copy->address('winston.smith@recdep.minitrue');
+		$copy->comment('Records Department');
+		is($address->phrase(), 'Julia');
+		is($address->user(), 'julia');
+		is($address->host(), 'ficdep.minitrue');
+		is($address->address(), 'julia@ficdep.minitrue');
+		is($address->comment(), undef);
+		$address->phrase(undef);
+		$address->address(undef);
+		$address->comment(undef);
+		is($copy->phrase(), 'Winston Smith');
+		is($copy->user(), 'winston.smith');
+		is($copy->host(), 'recdep.minitrue');
+		is($copy->address(), 'winston.smith@recdep.minitrue');
+		is($copy->comment(), 'Records Department');
 	};
 
 	subtest 'test method new() with invalid email address' => sub {
