@@ -58,10 +58,36 @@ static void carp(bool fatal, const char *format, ...)
 	SvREFCNT_dec(scalar);
 }
 
-static const char *get_perl_hash_value(HV *hash, const char *key, bool *utf8)
+static const char *get_perl_scalar_value(SV *scalar, bool utf8)
+{
+	const char *string;
+
+	if (!SvOK(scalar))
+		return NULL;
+
+	string = SvPV_nolen(scalar);
+	if (utf8 && !SvUTF8(scalar))
+		return SvPVutf8_nolen(sv_mortalcopy(scalar));
+
+	return string;
+}
+
+static const char *get_perl_scalar_string_value(SV *scalar, const char *name)
+{
+	const char *string;
+
+	string = get_perl_scalar_value(scalar, false);
+	if (!string) {
+		carp(CARP_WARN, "Use of uninitialized value for %s", name);
+		return "";
+	}
+
+	return string;
+}
+
+static SV *get_perl_hash_scalar(HV *hash, const char *key)
 {
 	I32 klen;
-	SV *scalar;
 	SV **scalar_ptr;
 
 	klen = strlen(key);
@@ -70,25 +96,21 @@ static const char *get_perl_hash_value(HV *hash, const char *key, bool *utf8)
 		return NULL;
 
 	scalar_ptr = hv_fetch(hash, key, klen, 0);
-	if (!scalar_ptr) {
-		carp(CARP_WARN, "HASH value of key '%s' is NULL", key);
-		return NULL;
-	}
-
-	scalar = *scalar_ptr;
-
-	if (!SvOK(scalar))
+	if (!scalar_ptr)
 		return NULL;
 
-	if (!SvPOK(scalar)) {
-		carp(CARP_WARN, "HASH value of key '%s' is not string", key);
+	return *scalar_ptr;
+}
+
+static const char *get_perl_hash_value(HV *hash, const char *key, bool utf8)
+{
+	SV *scalar;
+
+	scalar = get_perl_hash_scalar(hash, key);
+	if (!scalar)
 		return NULL;
-	}
 
-	if (!*utf8 && SvUTF8(scalar))
-		*utf8 = true;
-
-	return SvPV_nolen(scalar);
+	return get_perl_scalar_value(scalar, utf8);
 }
 
 static void set_perl_hash_value(HV *hash, const char *key, const char *value, bool utf8)
@@ -103,20 +125,10 @@ static void set_perl_hash_value(HV *hash, const char *key, const char *value, bo
 	else
 		scalar = newSV(0);
 
-	if (value && utf8)
-		SvUTF8_on(scalar);
+	if (utf8 && value)
+		sv_utf8_decode(scalar);
 
 	hv_store(hash, key, klen, scalar, 0);
-}
-
-static const char *get_string_from_perl_scalar(SV *scalar, const char *name)
-{
-	if (!SvOK(scalar)) {
-		carp(CARP_WARN, "Use of uninitialized value for %s", name);
-		return "";
-	}
-
-	return SvPV_nolen(scalar);
 }
 
 static HV *get_perl_class_from_perl_cv(CV *cv)
@@ -147,7 +159,7 @@ static HV *get_perl_class_from_perl_scalar(SV *scalar)
 	HV *class;
 	const char *class_name;
 
-	class_name = get_string_from_perl_scalar(scalar, "class");
+	class_name = get_perl_scalar_string_value(scalar, "class");
 
 	if (!class_name[0]) {
 		carp(CARP_WARN, "Explicit blessing to '' (assuming package main)");
@@ -174,41 +186,54 @@ static bool is_class_object(const char *class, SV *object)
 	return sv_isobject(object) && sv_derived_from(object, class);
 }
 
-static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, bool *utf8, AV *array, I32 index1, I32 index2, const char *class)
+static HV* get_object_hash_from_perl_array(AV *array, I32 index1, I32 index2, const char *class, bool warn)
 {
-	HV *hash;
 	SV *scalar;
 	SV *object;
 	SV **object_ptr;
+
+	object_ptr = av_fetch(array, index2, 0);
+	if (!object_ptr) {
+		if (warn)
+			carp(CARP_WARN, "Element at index %d/%d is NULL", (int)index1, (int)index2);
+		return NULL;
+	}
+
+	object = *object_ptr;
+	if (!is_class_object(class, object)) {
+		if (warn)
+			carp(CARP_WARN, "Element at index %d/%d is not %s object", (int)index1, (int)index2, class);
+		return NULL;
+	}
+
+	if (!SvROK(object)) {
+		if (warn)
+			carp(CARP_WARN, "Element at index %d/%d is not reference", (int)index1, (int)index2);
+		return NULL;
+	}
+
+	scalar = SvRV(object);
+	if (SvTYPE(scalar) != SVt_PVHV) {
+		if (warn)
+			carp(CARP_WARN, "Element at index %d/%d is not HASH reference", (int)index1, (int)index2);
+		return NULL;
+	}
+
+	return (HV *)scalar;
+
+}
+
+static void message_address_add_from_perl_array(struct message_address **first_address, struct message_address **last_address, bool utf8, AV *array, I32 index1, I32 index2, const char *class)
+{
+	HV *hash;
 	const char *name;
 	const char *mailbox;
 	const char *domain;
 	const char *comment;
 
-	object_ptr = av_fetch(array, index2, 0);
-	if (!object_ptr) {
-		carp(CARP_WARN, "Element at index %d/%d is NULL", (int)index1, (int)index2);
+	hash = get_object_hash_from_perl_array(array, index1, index2, class, false);
+	if (!hash)
 		return;
-	}
-
-	object = *object_ptr;
-	if (!is_class_object(class, object)) {
-		carp(CARP_WARN, "Element at index %d/%d is not %s object", (int)index1, (int)index2, class);
-		return;
-	}
-
-	if (!SvROK(object)) {
-		carp(CARP_WARN, "Element at index %d/%d is not reference", (int)index1, (int)index2);
-		return;
-	}
-
-	scalar = SvRV(object);
-	if (SvTYPE(scalar) != SVt_PVHV) {
-		carp(CARP_WARN, "Element at index %d/%d is not HASH reference", (int)index1, (int)index2);
-		return;
-	}
-
-	hash = (HV *)scalar;
 
 	name = get_perl_hash_value(hash, "phrase", utf8);
 	mailbox = get_perl_hash_value(hash, "user", utf8);
@@ -239,20 +264,7 @@ static void message_address_add_from_perl_array(struct message_address **first_a
 	message_address_add(first_address, last_address, name, NULL, mailbox, domain, comment);
 }
 
-static const char *get_group_name_from_perl_scalar(SV *scalar)
-{
-	if (!SvOK(scalar))
-		return NULL;
-
-	if (!SvPOK(scalar)) {
-		carp(CARP_WARN, "Group name is not string");
-		return NULL;
-	}
-
-	return SvPV_nolen(scalar);
-}
-
-static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name)
+static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name, bool warn)
 {
 	SV *scalar_ref;
 
@@ -260,37 +272,32 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name)
 		return NULL;
 
 	if (scalar && !SvROK(scalar)) {
-		carp(CARP_WARN, "Value for group '%s' is not reference", group_name);
+		if (warn)
+			carp(CARP_WARN, "Value for group '%s' is not reference", group_name);
 		return NULL;
 	}
 
 	scalar_ref = SvRV(scalar);
 
 	if (!scalar_ref || SvTYPE(scalar_ref) != SVt_PVAV) {
-		carp(CARP_WARN, "Value for group '%s' is not ARRAY reference", group_name);
+		if (warn)
+			carp(CARP_WARN, "Value for group '%s' is not ARRAY reference", group_name);
 		return NULL;
 	}
 
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, bool *utf8, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
+static void message_address_add_from_perl_group(struct message_address **first_address, struct message_address **last_address, bool utf8, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
 {
 	I32 len;
 	I32 index2;
 	AV *array;
 	const char *group_name;
 
-	group_name = get_group_name_from_perl_scalar(scalar_group);
-	array = get_perl_array_from_scalar(scalar_list, group_name);
-
-	if (!*utf8 && SvUTF8(scalar_group))
-		*utf8 = true;
-
-	if (array)
-		len = av_len(array) + 1;
-	else
-		len = 0;
+	group_name = get_perl_scalar_value(scalar_group, utf8);
+	array = get_perl_array_from_scalar(scalar_list, group_name, false);
+	len = array ? (av_len(array) + 1) : 0;
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL, NULL);
@@ -300,6 +307,39 @@ static void message_address_add_from_perl_group(struct message_address **first_a
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
+}
+
+static bool perl_group_needs_utf8(SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
+{
+	I32 len;
+	I32 index2;
+	SV *scalar;
+	HV *hash;
+	AV *array;
+	const char *group_name;
+	const char **hash_key_ptr;
+
+	static const char *hash_keys[] = { "phrase", "user", "host", "comment", NULL };
+
+	group_name = get_perl_scalar_value(scalar_group, false);
+	if (SvUTF8(scalar_group))
+		return true;
+
+	array = get_perl_array_from_scalar(scalar_list, group_name, true);
+	len = array ? (av_len(array) + 1) : 0;
+
+	for (index2 = 0; index2 < len; ++index2) {
+		hash = get_object_hash_from_perl_array(array, index1, index2, class, true);
+		if (!hash)
+			continue;
+		for (hash_key_ptr = hash_keys; *hash_key_ptr; ++hash_key_ptr) {
+			scalar = get_perl_hash_scalar(hash, *hash_key_ptr);
+			if (scalar && get_perl_scalar_value(scalar, false) && SvUTF8(scalar))
+				return true;
+		}
+	}
+
+	return false;
 }
 
 static int count_address_groups(struct message_address *first_address)
@@ -340,8 +380,8 @@ static bool get_next_perl_address_group(struct message_address **address, SV **g
 	else
 		*group_scalar = newSV(0);
 
-	if (in_group && (*address)->mailbox && utf8)
-		SvUTF8_on(*group_scalar);
+	if (utf8 && in_group && (*address)->mailbox)
+		sv_utf8_decode(*group_scalar);
 
 	addresses_array = newAV();
 	*addresses_scalar = newRV_noinc((SV *)addresses_array);
@@ -396,12 +436,15 @@ CODE:
 	first_address = NULL;
 	last_address = NULL;
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(&first_address, &last_address, &utf8, ST(i), ST(i+1), i, this_class_name);
+		if ((utf8 = perl_group_needs_utf8(ST(i), ST(i+1), i, this_class_name)))
+			break;
+	for (i = 0; i < items; i += 2)
+		message_address_add_from_perl_group(&first_address, &last_address, utf8, ST(i), ST(i+1), i, this_class_name);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
 	RETVAL = newSVpv(string, 0);
 	if (utf8)
-		SvUTF8_on(RETVAL);
+		sv_utf8_decode(RETVAL);
 	free(string);
 OUTPUT:
 	RETVAL
@@ -423,8 +466,8 @@ PREINIT:
 INPUT:
 	const char *this_class_name = "$Package";
 INIT:
+	input = get_perl_scalar_string_value(string, "string");
 	utf8 = SvUTF8(string);
-	input = get_string_from_perl_scalar(string, "string");
 	hv_class = get_perl_class_from_perl_scalar_or_cv(items >= 2 ? class : NULL, cv);
 	if (items >= 2 && !sv_derived_from(class, this_class_name)) {
 		class_name = HvNAME(hv_class);
