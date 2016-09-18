@@ -389,7 +389,9 @@ sub comment {
 	return $self->{comment} unless @args;
 	return $self->{comment} = undef unless defined $args[0];
 	my $count = 0;
-	foreach ( split //, $args[0] ) {
+	my $cleaned = $args[0];
+	$cleaned =~ s/(?:\\.|[^\(\)])//g;
+	foreach ( split //, $cleaned ) {
 		$count++ if $_ eq '(';
 		$count-- if $_ eq ')';
 		last if $count < 0;

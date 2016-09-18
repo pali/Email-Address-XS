@@ -346,7 +346,7 @@ subtest 'test method address()' => sub {
 
 subtest 'test method comment()' => sub {
 
-	plan tests => 17;
+	plan tests => 29;
 
 	my $address = Email::Address::XS->new();
 	is($address->comment(), undef);
@@ -369,10 +369,28 @@ subtest 'test method comment()' => sub {
 	is($address->comment('string (comment (nested ()comment)another comment)()'), 'string (comment (nested ()comment)another comment)()');
 	is($address->comment(), 'string (comment (nested ()comment)another comment)()');
 
+	is($address->comment('string (comment \(not nested ()comment\)\)(nested\(comment()))'), 'string (comment \(not nested ()comment\)\)(nested\(comment()))');
+	is($address->comment(), 'string (comment \(not nested ()comment\)\)(nested\(comment()))');
+
+	is($address->comment('string\\\\()'), 'string\\\\()');
+	is($address->comment(), 'string\\\\()');
+
+	is($address->comment('string\\\\\\\\()'), 'string\\\\\\\\()');
+	is($address->comment(), 'string\\\\\\\\()');
+
 	is($address->comment('string ((not balanced comment)'), undef);
 	is($address->comment(), undef);
 
 	is($address->comment('string )(()not balanced'), undef);
+	is($address->comment(), undef);
+
+	is($address->comment('string \()not balanced'), undef);
+	is($address->comment(), undef);
+
+	is($address->comment('string(\)not balanced'), undef);
+	is($address->comment(), undef);
+
+	is($address->comment('string(\\\\\)not balanced'), undef);
 	is($address->comment(), undef);
 
 };
