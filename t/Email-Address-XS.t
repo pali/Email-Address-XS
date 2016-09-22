@@ -13,7 +13,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 16;
+use Test::More 'no_plan';
 
 sub silent(&) {
 	my ($code) = @_;
@@ -21,14 +21,15 @@ sub silent(&) {
 	return $code->();
 }
 
-sub obj_to_hash {
+sub obj_to_hashstr {
 	my ($self) = @_;
-	my $hash = {};
+	my $out = "";
 	foreach ( qw(user host phrase comment) ) {
-		$hash->{$_} = $self->{$_} if exists $self->{$_};
+		next unless exists $self->{$_};
+		$out .= $_ . ':' . (defined $self->{$_} ? $self->{$_} : '(undef)') . ';';
 	}
-	return $hash;
-};
+	return $out;
+}
 
 #########################
 
@@ -39,474 +40,456 @@ BEGIN {
 #########################
 
 require overload;
-my $obj_to_str = overload::Method 'Email::Address::XS', '""';
-my $obj_to_hash = \&obj_to_hash;
+my $obj_to_origstr = overload::Method 'Email::Address::XS', '""';
+my $obj_to_hashstr = \&obj_to_hashstr;
 
-# set stringify operator for comparision used in is_deeply
+# set stringify and eq operators for comparision used in is_deeply
 {
 	local $SIG{__WARN__} = sub { };
-	overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hash;
-};
+	overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hashstr;
+	overload::OVERLOAD 'Email::Address::XS', 'eq' => sub { obj_to_hashstr($_[0]) eq obj_to_hashstr($_[1]) };
+}
 
 #########################
 
-subtest 'test method new()' => sub {
+{
 
-	plan tests => 15;
-
-	subtest 'test method new() without arguments' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() without arguments';
 		my $address = Email::Address::XS->new();
-		is($address->phrase(), undef);
-		is($address->user(), undef);
-		is($address->host(), undef);
-		is($address->address(), undef);
-		is($address->comment(), undef);
-		is($address->name(), '');
-		is(silent { $address->format() }, '');
-	};
+		is($address->phrase(), undef, $subtest);
+		is($address->user(), undef, $subtest);
+		is($address->host(), undef, $subtest);
+		is($address->address(), undef, $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), '', $subtest);
+		is(silent { $address->format() }, '', $subtest);
+	}
 
-	subtest 'test method new() with one argument' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with one argument';
 		my $address = Email::Address::XS->new('Addressless Outer Party Member');
-		is($address->phrase(), 'Addressless Outer Party Member');
-		is($address->user(), undef);
-		is($address->host(), undef);
-		is($address->address(), undef);
-		is($address->comment(), undef);
-		is($address->name(), 'Addressless Outer Party Member');
-		is(silent { $address->format() }, '');
-	};
+		is($address->phrase(), 'Addressless Outer Party Member', $subtest);
+		is($address->user(), undef, $subtest);
+		is($address->host(), undef, $subtest);
+		is($address->address(), undef, $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'Addressless Outer Party Member', $subtest);
+		is(silent { $address->format() }, '', $subtest);
+	}
 
-	subtest 'test method new() with two arguments as array' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with two arguments as array';
 		my $address = Email::Address::XS->new(undef, 'user@oceania');
-		is($address->phrase(), undef);
-		is($address->user(), 'user');
-		is($address->host(), 'oceania');
-		is($address->address(), 'user@oceania');
-		is($address->comment(), undef);
-		is($address->name(), 'user');
-		is($address->format(), 'user@oceania');
-	};
+		is($address->phrase(), undef, $subtest);
+		is($address->user(), 'user', $subtest);
+		is($address->host(), 'oceania', $subtest);
+		is($address->address(), 'user@oceania', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'user', $subtest);
+		is($address->format(), 'user@oceania', $subtest);
+	}
 
-	subtest 'test method new() with two arguments as hash' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with two arguments as hash';
 		my $address = Email::Address::XS->new(address => 'winston.smith@recdep.minitrue');
-		is($address->phrase(), undef);
-		is($address->user(), 'winston.smith');
-		is($address->host(), 'recdep.minitrue');
-		is($address->address(), 'winston.smith@recdep.minitrue');
-		is($address->comment(), undef);
-		is($address->name(), 'winston.smith');
-		is($address->format(), 'winston.smith@recdep.minitrue');
-	};
+		is($address->phrase(), undef, $subtest);
+		is($address->user(), 'winston.smith', $subtest);
+		is($address->host(), 'recdep.minitrue', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'winston.smith', $subtest);
+		is($address->format(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	subtest 'test method new() with two arguments as array' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with two arguments as array';
 		my $address = Email::Address::XS->new(Julia => 'julia@ficdep.minitrue');
-		is($address->phrase(), 'Julia');
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-		is($address->comment(), undef);
-		is($address->name(), 'Julia');
-		is($address->format(), 'Julia <julia@ficdep.minitrue>');
-	};
+		is($address->phrase(), 'Julia', $subtest);
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'Julia', $subtest);
+		is($address->format(), 'Julia <julia@ficdep.minitrue>', $subtest);
+	}
 
-	subtest 'test method new() with three arguments' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with three arguments';
 		my $address = Email::Address::XS->new('Winston Smith', 'winston.smith@recdep.minitrue', 'Records Department');
-		is($address->phrase(), 'Winston Smith');
-		is($address->user(), 'winston.smith');
-		is($address->host(), 'recdep.minitrue');
-		is($address->address(), 'winston.smith@recdep.minitrue');
-		is($address->comment(), 'Records Department');
-		is($address->name(), 'Winston Smith');
-		is($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)');
-	};
+		is($address->phrase(), 'Winston Smith', $subtest);
+		is($address->user(), 'winston.smith', $subtest);
+		is($address->host(), 'recdep.minitrue', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+		is($address->comment(), 'Records Department', $subtest);
+		is($address->name(), 'Winston Smith', $subtest);
+		is($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)', $subtest);
+	}
 
-	subtest 'test method new() with four arguments user & host as hash' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with four arguments user & host as hash';
 		my $address = Email::Address::XS->new(user => 'julia', host => 'ficdep.minitrue');
-		is($address->phrase(), undef);
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-		is($address->comment(), undef);
-		is($address->name(), 'julia');
-		is($address->format(), 'julia@ficdep.minitrue');
-	};
+		is($address->phrase(), undef, $subtest);
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'julia', $subtest);
+		is($address->format(), 'julia@ficdep.minitrue', $subtest);
+	}
 
-	subtest 'test method new() with four arguments phrase & address as hash' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with four arguments phrase & address as hash';
 		my $address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
-		is($address->phrase(), 'Julia');
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-		is($address->comment(), undef);
-		is($address->name(), 'Julia');
-		is($address->format(), 'Julia <julia@ficdep.minitrue>');
-	};
+		is($address->phrase(), 'Julia', $subtest);
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'Julia', $subtest);
+		is($address->format(), 'Julia <julia@ficdep.minitrue>', $subtest);
+	}
 
-	subtest 'test method new() with four arguments as array' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with four arguments as array';
 		my $address = silent { Email::Address::XS->new('Julia', 'julia@ficdep.minitrue', 'Fiction Department', 'deprecated_original_string') };
-		is($address->phrase(), 'Julia');
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-		is($address->comment(), 'Fiction Department');
-		is($address->name(), 'Julia');
-		is($address->format(), 'Julia <julia@ficdep.minitrue> (Fiction Department)');
-	};
+		is($address->phrase(), 'Julia', $subtest);
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+		is($address->comment(), 'Fiction Department', $subtest);
+		is($address->name(), 'Julia', $subtest);
+		is($address->format(), 'Julia <julia@ficdep.minitrue> (Fiction Department)', $subtest);
+	}
 
-	subtest 'test method new() with four arguments as hash (phrase is string "address")' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with four arguments as hash (phrase is string "address")';
 		my $address = Email::Address::XS->new(phrase => 'address', address => 'user@oceania');
-		is($address->phrase(), 'address');
-		is($address->user(), 'user');
-		is($address->host(), 'oceania');
-		is($address->address(), 'user@oceania');
-		is($address->comment(), undef);
-		is($address->name(), 'address');
-		is($address->format(), 'address <user@oceania>');
-	};
+		is($address->phrase(), 'address', $subtest);
+		is($address->user(), 'user', $subtest);
+		is($address->host(), 'oceania', $subtest);
+		is($address->address(), 'user@oceania', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'address', $subtest);
+		is($address->format(), 'address <user@oceania>', $subtest);
+	}
 
-	subtest 'test method new() with copy argument' => sub {
-		plan tests => 15;
+	{
+		my $subtest = 'test method new() with copy argument';
 		my $address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
 		my $copy = Email::Address::XS->new(copy => $address);
-		is($copy->phrase(), 'Julia');
-		is($copy->user(), 'julia');
-		is($copy->host(), 'ficdep.minitrue');
-		is($copy->address(), 'julia@ficdep.minitrue');
-		is($copy->comment(), undef);
+		is($copy->phrase(), 'Julia', $subtest);
+		is($copy->user(), 'julia', $subtest);
+		is($copy->host(), 'ficdep.minitrue', $subtest);
+		is($copy->address(), 'julia@ficdep.minitrue', $subtest);
+		is($copy->comment(), undef, $subtest);
 		$copy->phrase('Winston Smith');
 		$copy->address('winston.smith@recdep.minitrue');
 		$copy->comment('Records Department');
-		is($address->phrase(), 'Julia');
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-		is($address->comment(), undef);
+		is($address->phrase(), 'Julia', $subtest);
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+		is($address->comment(), undef, $subtest);
 		$address->phrase(undef);
 		$address->address(undef);
 		$address->comment(undef);
-		is($copy->phrase(), 'Winston Smith');
-		is($copy->user(), 'winston.smith');
-		is($copy->host(), 'recdep.minitrue');
-		is($copy->address(), 'winston.smith@recdep.minitrue');
-		is($copy->comment(), 'Records Department');
-	};
+		is($copy->phrase(), 'Winston Smith', $subtest);
+		is($copy->user(), 'winston.smith', $subtest);
+		is($copy->host(), 'recdep.minitrue', $subtest);
+		is($copy->address(), 'winston.smith@recdep.minitrue', $subtest);
+		is($copy->comment(), 'Records Department', $subtest);
+	}
 
-	subtest 'test method new() with invalid email address' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with invalid email address';
 		my $address = Email::Address::XS->new(address => 'invalid_address');
-		is($address->phrase(), undef);
-		is($address->user(), undef);
-		is($address->host(), undef);
-		is($address->address(), undef);
-		is($address->comment(), undef);
-		is($address->name(), '');
-		is(silent { $address->format() }, '');
-	};
+		is($address->phrase(), undef, $subtest);
+		is($address->user(), undef, $subtest);
+		is($address->host(), undef, $subtest);
+		is($address->address(), undef, $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), '', $subtest);
+		is(silent { $address->format() }, '', $subtest);
+	}
 
-	subtest 'test method new() with empty strings for user and host and non empty for phrase' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with empty strings for user and host and non empty for phrase';
 		my $address = Email::Address::XS->new(user => '', host => '', phrase => 'phrase');
-		is($address->phrase(), 'phrase');
-		is($address->user(), '');
-		is($address->host(), '');
-		is($address->address(), undef);
-		is($address->comment(), undef);
-		is($address->name(), 'phrase');
-		is(silent { $address->format() }, '');
-	};
+		is($address->phrase(), 'phrase', $subtest);
+		is($address->user(), '', $subtest);
+		is($address->host(), '', $subtest);
+		is($address->address(), undef, $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'phrase', $subtest);
+		is(silent { $address->format() }, '', $subtest);
+	}
 
-	subtest 'test method new() with all named arguments' => sub {
-		plan tests => 7;
+	{
+		my $subtest = 'test method new() with all named arguments';
 		my $address = Email::Address::XS->new(phrase => 'Julia', user => 'julia', host => 'ficdep.minitrue', comment => 'Fiction Department');
-		is($address->phrase(), 'Julia');
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-		is($address->comment(), 'Fiction Department');
-		is($address->name(), 'Julia');
-		is($address->format(), 'Julia <julia@ficdep.minitrue> (Fiction Department)');
-	};
+		is($address->phrase(), 'Julia', $subtest);
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+		is($address->comment(), 'Fiction Department', $subtest);
+		is($address->name(), 'Julia', $subtest);
+		is($address->format(), 'Julia <julia@ficdep.minitrue> (Fiction Department)', $subtest);
+	}
 
-	subtest 'test method new() that address takes precedence over user and host' => sub {
-		plan tests => 3;
+	{
+		my $subtest = 'test method new() that address takes precedence over user and host';
 		my $address = Email::Address::XS->new(user => 'winston.smith', host => 'recdep.minitrue', address => 'julia@ficdep.minitrue' );
-		is($address->user(), 'julia');
-		is($address->host(), 'ficdep.minitrue');
-		is($address->address(), 'julia@ficdep.minitrue');
-	};
+		is($address->user(), 'julia', $subtest);
+		is($address->host(), 'ficdep.minitrue', $subtest);
+		is($address->address(), 'julia@ficdep.minitrue', $subtest);
+	}
 
-};
-
-#########################
-
-subtest 'test method phrase()' => sub {
-
-	plan tests => 7;
-
-	my $address = Email::Address::XS->new();
-	is($address->phrase(), undef);
-
-	is($address->phrase('Winston Smith'), 'Winston Smith');
-	is($address->phrase(), 'Winston Smith');
-
-	is($address->phrase('Julia'), 'Julia');
-	is($address->phrase(), 'Julia');
-
-	is($address->phrase(undef), undef);
-	is($address->phrase(), undef);
-
-};
+}
 
 #########################
 
-subtest 'test method user()' => sub {
-
-	plan tests => 7;
+{
 
 	my $address = Email::Address::XS->new();
-	is($address->user(), undef);
+	is($address->phrase(), undef, 'test method phrase()');
 
-	is($address->user('winston'), 'winston');
-	is($address->user(), 'winston');
+	is($address->phrase('Winston Smith'), 'Winston Smith', 'test method phrase()');
+	is($address->phrase(), 'Winston Smith', 'test method phrase()');
 
-	is($address->user('julia'), 'julia');
-	is($address->user(), 'julia');
+	is($address->phrase('Julia'), 'Julia', 'test method phrase()');
+	is($address->phrase(), 'Julia', 'test method phrase()');
 
-	is($address->user(undef), undef);
-	is($address->user(), undef);
+	is($address->phrase(undef), undef, 'test method phrase()');
+	is($address->phrase(), undef, 'test method phrase()');
 
-};
+}
 
 #########################
 
-subtest 'test method host()' => sub {
-
-	plan tests => 7;
+{
 
 	my $address = Email::Address::XS->new();
-	is($address->host(), undef);
+	is($address->user(), undef, 'test method user()');
 
-	is($address->host('eurasia'), 'eurasia');
-	is($address->host(), 'eurasia');
+	is($address->user('winston'), 'winston', 'test method user()');
+	is($address->user(), 'winston', 'test method user()');
 
-	is($address->host('eastasia'), 'eastasia');
-	is($address->host(), 'eastasia');
+	is($address->user('julia'), 'julia', 'test method user()');
+	is($address->user(), 'julia', 'test method user()');
 
-	is($address->host(undef), undef);
-	is($address->host(), undef);
+	is($address->user(undef), undef, 'test method user()');
+	is($address->user(), undef, 'test method user()');
 
-};
+}
 
 #########################
 
-subtest 'test method address()' => sub {
-
-	plan tests => 20;
+{
 
 	my $address = Email::Address::XS->new();
-	is($address->address(), undef);
+	is($address->host(), undef, 'test method host()');
 
-	is($address->address('winston.smith@recdep.minitrue'), 'winston.smith@recdep.minitrue');
-	is($address->address(), 'winston.smith@recdep.minitrue');
-	is($address->user(), 'winston.smith');
-	is($address->host(), 'recdep.minitrue');
+	is($address->host('eurasia'), 'eurasia', 'test method host()');
+	is($address->host(), 'eurasia', 'test method host()');
 
-	is($address->user('julia@outer"party'), 'julia@outer"party');
-	is($address->user(), 'julia@outer"party');
-	is($address->host(), 'recdep.minitrue');
-	is($address->address(), '"julia@outer\\"party"@recdep.minitrue');
+	is($address->host('eastasia'), 'eastasia', 'test method host()');
+	is($address->host(), 'eastasia', 'test method host()');
 
-	is($address->address('julia@ficdep.minitrue'), 'julia@ficdep.minitrue');
-	is($address->address(), 'julia@ficdep.minitrue');
-	is($address->user(), 'julia');
-	is($address->host(), 'ficdep.minitrue');
+	is($address->host(undef), undef, 'test method host()');
+	is($address->host(), undef, 'test method host()');
 
-	is($address->address(undef), undef);
-	is($address->address(), undef);
-	is($address->user(), undef);
-	is($address->host(), undef);
-
-	is($address->address('julia@ficdep.minitrue'), 'julia@ficdep.minitrue');
-	is($address->address('invalid_address'), undef);
-	is($address->address(), undef);
-
-};
+}
 
 #########################
 
-subtest 'test method comment()' => sub {
-
-	plan tests => 29;
+{
 
 	my $address = Email::Address::XS->new();
-	is($address->comment(), undef);
+	is($address->address(), undef, 'test method address()');
 
-	is($address->comment('Fiction Department'), 'Fiction Department');
-	is($address->comment(), 'Fiction Department');
+	is($address->address('winston.smith@recdep.minitrue'), 'winston.smith@recdep.minitrue', 'test method address()');
+	is($address->address(), 'winston.smith@recdep.minitrue', 'test method address()');
+	is($address->user(), 'winston.smith', 'test method address()');
+	is($address->host(), 'recdep.minitrue', 'test method address()');
 
-	is($address->comment('Records Department'), 'Records Department');
-	is($address->comment(), 'Records Department');
+	is($address->user('julia@outer"party'), 'julia@outer"party', 'test method address()');
+	is($address->user(), 'julia@outer"party', 'test method address()');
+	is($address->host(), 'recdep.minitrue', 'test method address()');
+	is($address->address(), '"julia@outer\\"party"@recdep.minitrue', 'test method address()');
 
-	is($address->comment(undef), undef);
-	is($address->comment(), undef);
+	is($address->address('julia@ficdep.minitrue'), 'julia@ficdep.minitrue', 'test method address()');
+	is($address->address(), 'julia@ficdep.minitrue', 'test method address()');
+	is($address->user(), 'julia', 'test method address()');
+	is($address->host(), 'ficdep.minitrue', 'test method address()');
 
-	is($address->comment('(comment)'), '(comment)');
-	is($address->comment(), '(comment)');
+	is($address->address(undef), undef, 'test method address()');
+	is($address->address(), undef, 'test method address()');
+	is($address->user(), undef, 'test method address()');
+	is($address->host(), undef, 'test method address()');
 
-	is($address->comment('string (comment) string'), 'string (comment) string');
-	is($address->comment(), 'string (comment) string');
+	is($address->address('julia@ficdep.minitrue'), 'julia@ficdep.minitrue', 'test method address()');
+	is($address->address('invalid_address'), undef, 'test method address()');
+	is($address->address(), undef, 'test method address()');
 
-	is($address->comment('string (comment (nested ()comment)another comment)()'), 'string (comment (nested ()comment)another comment)()');
-	is($address->comment(), 'string (comment (nested ()comment)another comment)()');
-
-	is($address->comment('string (comment \(not nested ()comment\)\)(nested\(comment()))'), 'string (comment \(not nested ()comment\)\)(nested\(comment()))');
-	is($address->comment(), 'string (comment \(not nested ()comment\)\)(nested\(comment()))');
-
-	is($address->comment('string\\\\()'), 'string\\\\()');
-	is($address->comment(), 'string\\\\()');
-
-	is($address->comment('string\\\\\\\\()'), 'string\\\\\\\\()');
-	is($address->comment(), 'string\\\\\\\\()');
-
-	is($address->comment('string ((not balanced comment)'), undef);
-	is($address->comment(), undef);
-
-	is($address->comment('string )(()not balanced'), undef);
-	is($address->comment(), undef);
-
-	is($address->comment('string \()not balanced'), undef);
-	is($address->comment(), undef);
-
-	is($address->comment('string(\)not balanced'), undef);
-	is($address->comment(), undef);
-
-	is($address->comment('string(\\\\\)not balanced'), undef);
-	is($address->comment(), undef);
-
-};
+}
 
 #########################
 
-subtest 'test method name()' => sub {
-
-	plan tests => 14;
+{
 
 	my $address = Email::Address::XS->new();
-	is($address->name(), '');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment('Fiction Department'), 'Fiction Department', 'test method comment()');
+	is($address->comment(), 'Fiction Department', 'test method comment()');
+
+	is($address->comment('Records Department'), 'Records Department', 'test method comment()');
+	is($address->comment(), 'Records Department', 'test method comment()');
+
+	is($address->comment(undef), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment('(comment)'), '(comment)', 'test method comment()');
+	is($address->comment(), '(comment)', 'test method comment()');
+
+	is($address->comment('string (comment) string'), 'string (comment) string', 'test method comment()');
+	is($address->comment(), 'string (comment) string', 'test method comment()');
+
+	is($address->comment('string (comment (nested ()comment)another comment)()'), 'string (comment (nested ()comment)another comment)()', 'test method comment()');
+	is($address->comment(), 'string (comment (nested ()comment)another comment)()', 'test method comment()');
+
+	is($address->comment('string (comment \(not nested ()comment\)\)(nested\(comment()))'), 'string (comment \(not nested ()comment\)\)(nested\(comment()))', 'test method comment()');
+	is($address->comment(), 'string (comment \(not nested ()comment\)\)(nested\(comment()))', 'test method comment()');
+
+	is($address->comment('string\\\\()'), 'string\\\\()', 'test method comment()');
+	is($address->comment(), 'string\\\\()', 'test method comment()');
+
+	is($address->comment('string\\\\\\\\()'), 'string\\\\\\\\()', 'test method comment()');
+	is($address->comment(), 'string\\\\\\\\()', 'test method comment()');
+
+	is($address->comment('string ((not balanced comment)'), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment('string )(()not balanced'), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment('string \()not balanced'), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment('string(\)not balanced'), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment('string(\\\\\)not balanced'), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+}
+
+#########################
+
+{
+
+	my $address = Email::Address::XS->new();
+	is($address->name(), '', 'test method name()');
 
 	$address->user('user1');
-	is($address->name(), 'user1');
+	is($address->name(), 'user1', 'test method name()');
 
 	$address->user('user2');
-	is($address->name(), 'user2');
+	is($address->name(), 'user2', 'test method name()');
 
 	$address->host('host');
-	is($address->name(), 'user2');
+	is($address->name(), 'user2', 'test method name()');
 
 	$address->address('winston.smith@recdep.minitrue');
-	is($address->name(), 'winston.smith');
+	is($address->name(), 'winston.smith', 'test method name()');
 
 	$address->comment('Winston');
-	is($address->name(), 'Winston');
+	is($address->name(), 'Winston', 'test method name()');
 
 	$address->phrase('Long phrase');
-	is($address->name(), 'Long phrase');
+	is($address->name(), 'Long phrase', 'test method name()');
 
 	$address->phrase('Long phrase 2');
-	is($address->name(), 'Long phrase 2');
+	is($address->name(), 'Long phrase 2', 'test method name()');
 
 	$address->user('user3');
-	is($address->name(), 'Long phrase 2');
+	is($address->name(), 'Long phrase 2', 'test method name()');
 
 	$address->comment('winston');
-	is($address->name(), 'Long phrase 2');
+	is($address->name(), 'Long phrase 2', 'test method name()');
 
 	$address->phrase(undef);
-	is($address->name(), 'winston');
+	is($address->name(), 'winston', 'test method name()');
 
 	$address->comment(undef);
-	is($address->name(), 'user3');
+	is($address->name(), 'user3', 'test method name()');
 
 	$address->address(undef);
-	is($address->name(), '');
+	is($address->name(), '', 'test method name()');
 
 	$address->phrase('Long phrase 3');
-	is($address->phrase(), 'Long phrase 3');
+	is($address->phrase(), 'Long phrase 3', 'test method name()');
 
-};
+}
 
 #########################
 
-subtest 'test object stringify' => sub {
+{
 
-	plan tests => 5;
-
-	# set correct stringify operator
+	# set original stringify operator
 	{
 		local $SIG{__WARN__} = sub { };
-		overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_str;
+		overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_origstr;
 	}
 
 	my $address = Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue');
-	is("$address", '"Winston Smith" <winston.smith@recdep.minitrue>');
+	is("$address", '"Winston Smith" <winston.smith@recdep.minitrue>', 'test object stringify');
 
 	$address->phrase('Winston');
-	is("$address", 'Winston <winston.smith@recdep.minitrue>');
+	is("$address", 'Winston <winston.smith@recdep.minitrue>', 'test object stringify');
 
 	$address->address('winston@recdep.minitrue');
-	is("$address", 'Winston <winston@recdep.minitrue>');
+	is("$address", 'Winston <winston@recdep.minitrue>', 'test object stringify');
 
 	$address->phrase(undef);
-	is("$address", 'winston@recdep.minitrue');
+	is("$address", 'winston@recdep.minitrue', 'test object stringify');
 
 	$address->address(undef);
-	is(silent { "$address" }, '');
+	is(silent { "$address" }, '', 'test object stringify');
 
 	# revert back
 	{
 		local $SIG{__WARN__} = sub { };
-		overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hash;
+		overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hashstr;
 	}
-};
+
+}
 
 #########################
 
-subtest 'test method format()' => sub {
-
-	plan tests => 5;
+{
 
 	my $address = Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue');
-	is($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue>');
+	is($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue>', 'test method format()');
 
 	$address->phrase('Julia');
-	is($address->format(), 'Julia <winston.smith@recdep.minitrue>');
+	is($address->format(), 'Julia <winston.smith@recdep.minitrue>', 'test method format()');
 
 	$address->address('julia@ficdep.minitrue');
-	is($address->format(), 'Julia <julia@ficdep.minitrue>');
+	is($address->format(), 'Julia <julia@ficdep.minitrue>', 'test method format()');
 
 	$address->phrase(undef);
-	is($address->format(), 'julia@ficdep.minitrue');
+	is($address->format(), 'julia@ficdep.minitrue', 'test method format()');
 
 	$address->address(undef);
-	is(silent { $address->format() }, '');
+	is(silent { $address->format() }, '', 'test method format()');
 
-};
+}
 
 #########################
 
-subtest 'test method parse()' => sub {
-
-	plan tests => 6;
+{
 
 	is_deeply(
 		[ silent { Email::Address::XS->parse() } ],
@@ -544,13 +527,11 @@ subtest 'test method parse()' => sub {
 		'test method parse() in scalar context',
 	);
 
-};
+}
 
 #########################
 
-subtest 'test method format_email_addresses()' => sub {
-
-	plan tests => 6;
+{
 
 	is(
 		format_email_addresses(),
@@ -597,13 +578,11 @@ subtest 'test method format_email_addresses()' => sub {
 		'test method format_email_addresses() with list of different type of addresses',
 	);
 
-};
+}
 
 #########################
 
-subtest 'test method parse_email_addresses()' => sub {
-
-	plan tests => 23;
+{
 
 	is_deeply(
 		[ silent { parse_email_addresses(undef) } ],
@@ -766,13 +745,11 @@ subtest 'test method parse_email_addresses()' => sub {
 		'test method parse_email_addresses() with second not derived class name argument',
 	);
 
-};
+}
 
 #########################
 
-subtest 'test method format_email_groups()' => sub {
-
-	plan tests => 17;
+{
 
 	my $undef = undef;
 
@@ -915,13 +892,11 @@ subtest 'test method format_email_groups()' => sub {
 		'test method format_email_groups() with different type of addresses in more groups',
 	);
 
-};
+}
 
 #########################
 
-subtest 'test method parse_email_groups()' => sub {
-
-	plan tests => 8;
+{
 
 	my $undef = undef;
 
@@ -1007,15 +982,14 @@ subtest 'test method parse_email_groups()' => sub {
 			],
 			"" => [],
 		],
+		'test method parse_email_groups() on string with nested comments and quoted characters',
 	);
 
-};
+}
 
 #########################
 
-subtest 'test method is_obj()' => sub {
-
-	plan tests => 9;
+{
 
 	my $undef = undef;
 	my $str = 'str';
@@ -1035,7 +1009,7 @@ subtest 'test method is_obj()' => sub {
 	ok(Email::Address::XS->is_obj($derived), 'test method is_obj() on Email::Address::XS derived object');
 	ok(!Email::Address::XS->is_obj($not_derived), 'test method is_obj() on Email::Address::XS not derived object');
 
-};
+}
 
 #########################
 
