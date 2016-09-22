@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-use 5.006002;
 use ExtUtils::MakeMaker;
 WriteMakefile(
 	NAME		=> 'Email::Address::XS',

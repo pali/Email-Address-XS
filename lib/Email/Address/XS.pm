@@ -2,7 +2,7 @@
 
 package Email::Address::XS;
 
-use 5.006002;
+use 5.006;
 use strict;
 use warnings;
 
@@ -505,7 +505,7 @@ Pali E<lt>pali@cpan.orgE<gt>
 Copyright (C) 2015-2016 by Pali E<lt>pali@cpan.orgE<gt>
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.6.2 or,
+it under the same terms as Perl itself, either Perl version 5.6.0 or,
 at your option, any later version of Perl 5 you may have available.
 
 Dovecot parser is licensed under The MIT License and copyrighted by

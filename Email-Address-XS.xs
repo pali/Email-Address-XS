@@ -6,6 +6,19 @@
 
 #include "dovecot-parser.h"
 
+/* Perl pre 5.8.0 support */
+#ifndef UTF8_IS_INVARIANT
+#define UTF8_IS_INVARIANT UTF8_IS_ASCII
+#endif
+
+/* Perl pre 5.13.1 support */
+#ifndef warn_sv
+#define warn_sv(scalar) warn("%s", SvPV_nolen(scalar))
+#endif
+#ifndef croak_sv
+#define croak_sv(scalar) croak("%s", SvPV_nolen(scalar))
+#endif
+
 /* Exported i_panic function for other C files */
 void i_panic(const char *format, ...)
 {
@@ -496,14 +509,14 @@ PPCODE:
 void
 compose_address(OUTLIST string, mailbox, domain)
 	char *string
-	const char *mailbox
-	const char *domain
+	char *mailbox
+	char *domain
 CLEANUP:
 	free(string);
 
 void
 split_address(string, OUTLIST mailbox, OUTLIST domain)
-	const char *string
+	char *string
 	char *mailbox
 	char *domain
 CLEANUP:
@@ -512,7 +525,7 @@ CLEANUP:
 
 void
 is_obj(class, object)
-	const char *class
+	char *class
 	SV *object
 CODE:
 	is_class_object(class, object) ? XSRETURN_YES : XSRETURN_NO;
