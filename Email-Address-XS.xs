@@ -58,6 +58,14 @@ static void carp(bool fatal, const char *format, ...)
 	SvREFCNT_dec(scalar);
 }
 
+static bool string_needs_utf8_upgrade(const char *ptr)
+{
+	while (*ptr)
+		if (!UTF8_IS_INVARIANT(*ptr++))
+			return true;
+	return false;
+}
+
 static const char *get_perl_scalar_value(SV *scalar, bool utf8)
 {
 	const char *string;
@@ -66,7 +74,7 @@ static const char *get_perl_scalar_value(SV *scalar, bool utf8)
 		return NULL;
 
 	string = SvPV_nolen(scalar);
-	if (utf8 && !SvUTF8(scalar))
+	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string))
 		return SvPVutf8_nolen(sv_mortalcopy(scalar));
 
 	return string;
