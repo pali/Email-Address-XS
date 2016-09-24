@@ -85,13 +85,16 @@ static bool string_needs_utf8_upgrade(const char *ptr)
 static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8)
 {
 	const char *string;
+	STRLEN len;
 
 	if (!SvOK(scalar))
 		return NULL;
 
-	string = SvPV_nolen(scalar);
-	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string))
-		return SvPVutf8_nolen(sv_mortalcopy(scalar));
+	string = SvPV(scalar, len);
+	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string)) {
+		scalar = sv_2mortal(newSVpv(string, len));
+		return SvPVutf8_nolen(scalar);
+	}
 
 	return string;
 }
