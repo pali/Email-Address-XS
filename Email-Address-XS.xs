@@ -66,12 +66,12 @@ static void carp(bool fatal, const char *format, ...)
 
 	append_carp_shortmess(aTHX_ scalar);
 
+	sv_2mortal(scalar);
+
 	if (!fatal)
 		warn_sv(scalar);
 	else
 		croak_sv(scalar);
-
-	SvREFCNT_dec(scalar);
 }
 
 static bool string_needs_utf8_upgrade(const char *ptr)
