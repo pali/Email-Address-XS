@@ -99,11 +99,11 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8)
 	return string;
 }
 
-static const char *get_perl_scalar_string_value(pTHX_ SV *scalar, const char *name)
+static const char *get_perl_scalar_string_value(pTHX_ SV *scalar, const char *name, bool utf8)
 {
 	const char *string;
 
-	string = get_perl_scalar_value(aTHX_ scalar, false);
+	string = get_perl_scalar_value(aTHX_ scalar, utf8);
 	if (!string) {
 		carp(CARP_WARN, "Use of uninitialized value for %s", name);
 		return "";
@@ -186,7 +186,7 @@ static HV *get_perl_class_from_perl_scalar(pTHX_ SV *scalar)
 	HV *class;
 	const char *class_name;
 
-	class_name = get_perl_scalar_string_value(aTHX_ scalar, "class");
+	class_name = get_perl_scalar_string_value(aTHX_ scalar, "class", false);
 
 	if (!class_name[0]) {
 		carp(CARP_WARN, "Explicit blessing to '' (assuming package main)");
@@ -493,7 +493,7 @@ PREINIT:
 INPUT:
 	const char *this_class_name = "$Package";
 INIT:
-	input = get_perl_scalar_string_value(aTHX_ string, "string");
+	input = get_perl_scalar_string_value(aTHX_ string, "string", false);
 	utf8 = SvUTF8(string);
 	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ items >= 2 ? class : NULL, cv);
 	if (items >= 2 && !sv_derived_from(class, this_class_name)) {
@@ -512,22 +512,57 @@ PPCODE:
 	}
 	message_address_free(&first_address);
 
-void
-compose_address(OUTLIST string, mailbox, domain)
-	char *string
-	char *mailbox
-	char *domain
-CLEANUP:
+SV *
+compose_address(...)
+PREINIT:
+	char *string;
+	const char *mailbox;
+	const char *domain;
+	bool utf8;
+	SV *mailbox_scalar;
+	SV *domain_scalar;
+INIT:
+	mailbox_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
+	domain_scalar = items >= 2 ? ST(1) : &PL_sv_undef;
+	mailbox = get_perl_scalar_string_value(aTHX_ mailbox_scalar, "mailbox", true);
+	domain = get_perl_scalar_string_value(aTHX_ domain_scalar, "domain", true);
+	utf8 = (SvUTF8(mailbox_scalar) || SvUTF8(domain_scalar));
+CODE:
+	compose_address(&string, mailbox, domain);
+	RETVAL = newSVpv(string, 0);
+	if (utf8)
+		sv_utf8_decode(RETVAL);
 	free(string);
+OUTPUT:
+	RETVAL
 
 void
-split_address(string, OUTLIST mailbox, OUTLIST domain)
-	char *string
-	char *mailbox
-	char *domain
-CLEANUP:
+split_address(...)
+PREINIT:
+	const char *string;
+	char *mailbox;
+	char *domain;
+	bool utf8;
+	SV *string_scalar;
+	SV *mailbox_scalar;
+	SV *domain_scalar;
+INIT:
+	string_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
+	string = get_perl_scalar_string_value(aTHX_ string_scalar, "string", false);
+	utf8 = SvUTF8(string_scalar);
+PPCODE:
+	split_address(string, &mailbox, &domain);
+	mailbox_scalar = newSVpv(mailbox, 0);
+	domain_scalar = newSVpv(domain, 0);
 	free(mailbox);
 	free(domain);
+	if (utf8) {
+		sv_utf8_decode(mailbox_scalar);
+		sv_utf8_decode(domain_scalar);
+	}
+	EXTEND(SP, 2);
+	PUSHs(sv_2mortal(mailbox_scalar));
+	PUSHs(sv_2mortal(domain_scalar));
 
 void
 is_obj(class, object)
