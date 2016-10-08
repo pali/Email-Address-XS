@@ -1059,6 +1059,12 @@ void split_address(const char *input, char **mailbox, char **domain)
 {
 	struct message_address_parser_context ctx;
 
+	if (!input || !input[0]) {
+		*mailbox = NULL;
+		*domain = NULL;
+		return;
+	}
+
 	memset(&ctx, 0, sizeof(ctx));
 
 	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, strlen(input), NULL);
