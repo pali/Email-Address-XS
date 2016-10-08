@@ -477,10 +477,10 @@ OUTPUT:
 	RETVAL
 
 void
-parse_email_groups(string, class = NO_INIT)
-	SV *string
-	SV *class
+parse_email_groups(...)
 PREINIT:
+	SV *string_scalar;
+	SV *class_scalar;
 	int count;
 	HV *hv_class;
 	SV *group_scalar;
@@ -493,10 +493,12 @@ PREINIT:
 INPUT:
 	const char *this_class_name = "$Package";
 INIT:
-	input = get_perl_scalar_string_value(aTHX_ string, "string", false);
-	utf8 = SvUTF8(string);
-	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ items >= 2 ? class : NULL, cv);
-	if (items >= 2 && !sv_derived_from(class, this_class_name)) {
+	string_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
+	class_scalar = items >= 2 ? ST(1) : NULL;
+	input = get_perl_scalar_string_value(aTHX_ string_scalar, "string", false);
+	utf8 = SvUTF8(string_scalar);
+	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ class_scalar ? class_scalar : NULL, cv);
+	if (class_scalar && !sv_derived_from(class_scalar, this_class_name)) {
 		class_name = HvNAME(hv_class);
 		carp(CARP_WARN, "Class %s is not derived from %s", (class_name ? class_name : "(unknown)"), this_class_name);
 		XSRETURN_EMPTY;
@@ -565,8 +567,10 @@ PPCODE:
 	PUSHs(sv_2mortal(domain_scalar));
 
 void
-is_obj(class, object)
-	char *class
-	SV *object
+is_obj(...)
+PREINIT:
+	SV *class = items >= 1 ? ST(0) : &PL_sv_undef;
+	SV *object = items >= 2 ? ST(1) : &PL_sv_undef;
+	const char *class_string = get_perl_scalar_string_value(aTHX_ class, "class", false);
 CODE:
-	is_class_object(aTHX_ class, object) ? XSRETURN_YES : XSRETURN_NO;
+	is_class_object(aTHX_ class_string, object) ? XSRETURN_YES : XSRETURN_NO;
