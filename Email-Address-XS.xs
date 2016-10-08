@@ -554,8 +554,8 @@ INIT:
 	utf8 = SvUTF8(string_scalar);
 PPCODE:
 	split_address(string, &mailbox, &domain);
-	mailbox_scalar = newSVpv(mailbox, 0);
-	domain_scalar = newSVpv(domain, 0);
+	mailbox_scalar = mailbox ? newSVpv(mailbox, 0) : newSV(0);
+	domain_scalar = domain ? newSVpv(domain, 0) : newSV(0);
 	free(mailbox);
 	free(domain);
 	if (utf8) {
