@@ -7,7 +7,7 @@
 #########################
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
@@ -15,10 +15,13 @@ $Carp::Internal{'Test::More'} = 1;
 
 use Test::More 'no_plan';
 
-sub silent(&) {
+sub with_warning(&) {
 	my ($code) = @_;
-	local $SIG{__WARN__} = sub { };
-	return $code->();
+	my $warn;
+	local $SIG{__WARN__} = sub { $warn = 1; };
+	my @ret = wantarray ? $code->() : scalar $code->();
+	ok($warn, 'following test throw warning');
+	return wantarray ? @ret : $ret[0];
 }
 
 sub obj_to_hashstr {
@@ -63,7 +66,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is($address->address(), undef, $subtest);
 		is($address->comment(), undef, $subtest);
 		is($address->name(), '', $subtest);
-		is(silent { $address->format() }, '', $subtest);
+		is(with_warning { $address->format() }, '', $subtest);
 	}
 
 	{
@@ -75,7 +78,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is($address->address(), undef, $subtest);
 		is($address->comment(), undef, $subtest);
 		is($address->name(), 'Addressless Outer Party Member', $subtest);
-		is(silent { $address->format() }, '', $subtest);
+		is(with_warning { $address->format() }, '', $subtest);
 	}
 
 	{
@@ -152,7 +155,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 	{
 		my $subtest = 'test method new() with four arguments as array';
-		my $address = silent { Email::Address::XS->new('Julia', 'julia@ficdep.minitrue', 'Fiction Department', 'deprecated_original_string') };
+		my $address = with_warning { Email::Address::XS->new('Julia', 'julia@ficdep.minitrue', 'Fiction Department', 'deprecated_original_string') };
 		is($address->phrase(), 'Julia', $subtest);
 		is($address->user(), 'julia', $subtest);
 		is($address->host(), 'ficdep.minitrue', $subtest);
@@ -210,7 +213,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is($address->address(), undef, $subtest);
 		is($address->comment(), undef, $subtest);
 		is($address->name(), '', $subtest);
-		is(silent { $address->format() }, '', $subtest);
+		is(with_warning { $address->format() }, '', $subtest);
 	}
 
 	{
@@ -222,7 +225,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is($address->address(), undef, $subtest);
 		is($address->comment(), undef, $subtest);
 		is($address->name(), 'phrase', $subtest);
-		is(silent { $address->format() }, '', $subtest);
+		is(with_warning { $address->format() }, '', $subtest);
 	}
 
 	{
@@ -456,7 +459,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is("$address", 'winston@recdep.minitrue', 'test object stringify');
 
 	$address->address(undef);
-	is(silent { "$address" }, '', 'test object stringify');
+	is(with_warning { "$address" }, '', 'test object stringify');
 
 	# revert back
 	{
@@ -483,7 +486,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is($address->format(), 'julia@ficdep.minitrue', 'test method format()');
 
 	$address->address(undef);
-	is(silent { $address->format() }, '', 'test method format()');
+	is(with_warning { $address->format() }, '', 'test method format()');
 
 }
 
@@ -492,13 +495,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 {
 
 	is_deeply(
-		[ silent { Email::Address::XS->parse() } ],
+		[ with_warning { Email::Address::XS->parse() } ],
 		[],
 		'test method parse() without argument',
 	);
 
 	is_deeply(
-		[ silent { Email::Address::XS->parse(undef) } ],
+		[ with_warning { Email::Address::XS->parse(undef) } ],
 		[],
 		'test method parse() with undef argument',
 	);
@@ -510,7 +513,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is_deeply(
-		[ silent { Email::Address::XS->parse('invalid_line') } ],
+		[ Email::Address::XS->parse('invalid_line') ],
 		[ Email::Address::XS->new(phrase => 'invalid_line') ],
 		'test method parse() on invalid not parsable line',
 	);
@@ -540,7 +543,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is(
-		silent { format_email_addresses('invalid string') },
+		with_warning { format_email_addresses('invalid string') },
 		'',
 		'test method format_email_addresses() with invalid string argument',
 	);
@@ -552,13 +555,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is(
-		silent { format_email_addresses(Email::Address::XS::NotDerived->new(user => 'user', host => 'host')) },
+		with_warning { format_email_addresses(Email::Address::XS::NotDerived->new(user => 'user', host => 'host')) },
 		'',
 		'test method format_email_addresses() with not derived object class',
 	);
 
 	is(
-		silent { format_email_addresses(bless([], 'invalid_object_class')) },
+		with_warning { format_email_addresses(bless([], 'invalid_object_class')) },
 		'',
 		'test method format_email_addresses() with invalid object class',
 	);
@@ -585,7 +588,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 {
 
 	is_deeply(
-		[ silent { parse_email_addresses(undef) } ],
+		[ with_warning { parse_email_addresses(undef) } ],
 		[],
 		'test method parse_email_addresses() with undef argument',
 	);
@@ -740,7 +743,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is_deeply(
-		[ silent { parse_email_addresses('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
+		[ with_warning { parse_email_addresses('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
 		[],
 		'test method parse_email_addresses() with second not derived class name argument',
 	);
@@ -778,19 +781,19 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	my $mime_group = '=?US-ASCII?Q?MIME?=';
 
 	is(
-		silent { format_email_groups('first', 'second', 'third') },
+		with_warning { format_email_groups('first', 'second', 'third') },
 		undef,
 		'test method format_email_groups() with odd number of arguments',
 	);
 
 	is(
-		format_email_groups('name', undef),
+		with_warning { format_email_groups('name', undef) },
 		'name:;',
 		'test method format_email_groups() with invalid type second argument (undef)',
 	);
 
 	is(
-		silent { format_email_groups('name', 'string') },
+		with_warning { format_email_groups('name', 'string') },
 		'name:;',
 		'test method format_email_groups() with invalid type second argument (string)',
 	);
@@ -832,7 +835,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is(
-		silent { format_email_groups($undef => [ $not_derived_object ]) },
+		with_warning { format_email_groups($undef => [ $not_derived_object ]) },
 		'',
 		'test method format_email_groups() with not derived object class',
 	);
@@ -901,7 +904,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	my $undef = undef;
 
 	is_deeply(
-		[ silent { parse_email_groups(undef) } ],
+		[ with_warning { parse_email_groups(undef) } ],
 		[],
 		'test method parse_email_groups() with undef argument',
 	);
@@ -933,7 +936,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is_deeply(
-		[ silent { parse_email_groups('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
+		[ with_warning { parse_email_groups('winston.smith@recdep.minitrue', 'Email::Address::XS::NotDerived') } ],
 		[],
 		'test method parse_email_groups() with second not derived class name argument',
 	);
