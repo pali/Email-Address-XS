@@ -7,6 +7,11 @@
 
 #include "dovecot-parser.h"
 
+/* Perl pre 5.7.2 support */
+#ifndef SvPV_nomg
+#define WITHOUT_SvPV_nomg
+#endif
+
 /* Perl pre 5.8.0 support */
 #ifndef UTF8_IS_INVARIANT
 #define UTF8_IS_INVARIANT UTF8_IS_ASCII
@@ -87,6 +92,7 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 	const char *string;
 	STRLEN len;
 
+#ifndef WITHOUT_SvPV_nomg
 	if (!nomg)
 		SvGETMAGIC(scalar);
 
@@ -94,6 +100,16 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 		return NULL;
 
 	string = SvPV_nomg(scalar, len);
+#else
+	if (!SvGMAGICAL(scalar) && !SvOK(scalar))
+		return NULL;
+
+	string = SvPV(scalar, len);
+
+	if (SvGMAGICAL(scalar) && !SvOK(scalar))
+		return NULL;
+#endif
+
 	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string)) {
 		scalar = sv_2mortal(newSVpv(string, len));
 		return SvPVutf8_nolen(scalar);
@@ -222,6 +238,10 @@ static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 inde
 	SV *object;
 	SV **object_ptr;
 
+#ifdef WITHOUT_SvPV_nomg
+	warn = true;
+#endif
+
 	object_ptr = av_fetch(array, index2, 0);
 	if (!object_ptr) {
 		if (warn)
@@ -298,6 +318,10 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name, bool w
 {
 	SV *scalar_ref;
 
+#ifdef WITHOUT_SvPV_nomg
+	warn = true;
+#endif
+
 	if (scalar && !SvROK(scalar)) {
 		if (warn)
 			carp(CARP_WARN, "Value for group '%s' is not reference", group_name);
@@ -336,6 +360,7 @@ static void message_address_add_from_perl_group(pTHX_ struct message_address **f
 		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
 }
 
+#ifndef WITHOUT_SvPV_nomg
 static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
 {
 	I32 len;
@@ -371,6 +396,7 @@ static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 i
 
 	return utf8;
 }
+#endif
 
 static int count_address_groups(struct message_address *first_address)
 {
@@ -462,12 +488,16 @@ INIT:
 		XSRETURN_UNDEF;
 	}
 CODE:
-	utf8 = false;
 	first_address = NULL;
 	last_address = NULL;
+#ifndef WITHOUT_SvPV_nomg
+	utf8 = false;
 	for (i = 0; i < items; i += 2)
 		if (perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), i, this_class_name))
 			utf8 = true;
+#else
+	utf8 = true;
+#endif
 	for (i = 0; i < items; i += 2)
 		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, ST(i), ST(i+1), i, this_class_name);
 	message_address_write(&string, first_address);
