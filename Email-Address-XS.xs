@@ -82,15 +82,18 @@ static bool string_needs_utf8_upgrade(const char *ptr)
 	return false;
 }
 
-static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8)
+static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 {
 	const char *string;
 	STRLEN len;
 
+	if (!nomg)
+		SvGETMAGIC(scalar);
+
 	if (!SvOK(scalar))
 		return NULL;
 
-	string = SvPV(scalar, len);
+	string = SvPV_nomg(scalar, len);
 	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string)) {
 		scalar = sv_2mortal(newSVpv(string, len));
 		return SvPVutf8_nolen(scalar);
@@ -103,7 +106,7 @@ static const char *get_perl_scalar_string_value(pTHX_ SV *scalar, const char *na
 {
 	const char *string;
 
-	string = get_perl_scalar_value(aTHX_ scalar, utf8);
+	string = get_perl_scalar_value(aTHX_ scalar, utf8, false);
 	if (!string) {
 		carp(CARP_WARN, "Use of uninitialized value for %s", name);
 		return "";
@@ -137,7 +140,7 @@ static const char *get_perl_hash_value(pTHX_ HV *hash, const char *key, bool utf
 	if (!scalar)
 		return NULL;
 
-	return get_perl_scalar_value(aTHX_ scalar, utf8);
+	return get_perl_scalar_value(aTHX_ scalar, utf8, true);
 }
 
 static void set_perl_hash_value(pTHX_ HV *hash, const char *key, const char *value, bool utf8)
@@ -295,9 +298,6 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name, bool w
 {
 	SV *scalar_ref;
 
-	if (!SvOK(scalar))
-		return NULL;
-
 	if (scalar && !SvROK(scalar)) {
 		if (warn)
 			carp(CARP_WARN, "Value for group '%s' is not reference", group_name);
@@ -322,7 +322,7 @@ static void message_address_add_from_perl_group(pTHX_ struct message_address **f
 	AV *array;
 	const char *group_name;
 
-	group_name = get_perl_scalar_value(aTHX_ scalar_group, utf8);
+	group_name = get_perl_scalar_value(aTHX_ scalar_group, utf8, true);
 	array = get_perl_array_from_scalar(scalar_list, group_name, false);
 	len = array ? (av_len(array) + 1) : 0;
 
@@ -343,14 +343,17 @@ static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 i
 	SV *scalar;
 	HV *hash;
 	AV *array;
+	bool utf8;
 	const char *group_name;
 	const char **hash_key_ptr;
 
 	static const char *hash_keys[] = { "phrase", "user", "host", "comment", NULL };
 
-	group_name = get_perl_scalar_value(aTHX_ scalar_group, false);
+	utf8 = false;
+
+	group_name = get_perl_scalar_value(aTHX_ scalar_group, false, false);
 	if (SvUTF8(scalar_group))
-		return true;
+		utf8 = true;
 
 	array = get_perl_array_from_scalar(scalar_list, group_name, true);
 	len = array ? (av_len(array) + 1) : 0;
@@ -361,12 +364,12 @@ static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 i
 			continue;
 		for (hash_key_ptr = hash_keys; *hash_key_ptr; ++hash_key_ptr) {
 			scalar = get_perl_hash_scalar(aTHX_ hash, *hash_key_ptr);
-			if (scalar && get_perl_scalar_value(aTHX_ scalar, false) && SvUTF8(scalar))
-				return true;
+			if (scalar && get_perl_scalar_value(aTHX_ scalar, false, false) && SvUTF8(scalar))
+				utf8 = true;
 		}
 	}
 
-	return false;
+	return utf8;
 }
 
 static int count_address_groups(struct message_address *first_address)
@@ -463,8 +466,8 @@ CODE:
 	first_address = NULL;
 	last_address = NULL;
 	for (i = 0; i < items; i += 2)
-		if ((utf8 = perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), i, this_class_name)))
-			break;
+		if (perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), i, this_class_name))
+			utf8 = true;
 	for (i = 0; i < items; i += 2)
 		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, ST(i), ST(i+1), i, this_class_name);
 	message_address_write(&string, first_address);
