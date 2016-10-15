@@ -900,6 +900,87 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 #########################
 
 {
+	tie my $str1, 'TieScalarCounter', 'str1';
+	tie my $str2, 'TieScalarCounter', 'str2';
+	tie my $str3, 'TieScalarCounter', 'str3';
+	tie my $str4, 'TieScalarCounter', 'str4';
+	my $list1 = [ Email::Address::XS->new(), Email::Address::XS->new() ];
+	my $list2 = [ Email::Address::XS->new(), Email::Address::XS->new() ];
+	my $list3 = [ Email::Address::XS->new() ];
+	my $list4 = [ Email::Address::XS->new() ];
+	tie $list1->[0]->{user}, 'TieScalarCounter', 'ASCII';
+	tie $list1->[0]->{host}, 'TieScalarCounter', 'ASCII';
+	tie $list1->[0]->{phrase}, 'TieScalarCounter', 'ASCII';
+	tie $list1->[0]->{comment}, 'TieScalarCounter', 'ASCII';
+	tie $list1->[1]->{user}, 'TieScalarCounter', 'ASCII';
+	tie $list1->[1]->{host}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list1->[1]->{phrase}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list1->[1]->{comment}, 'TieScalarCounter', 'ASCII';
+	tie $list2->[0]->{user}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list2->[0]->{host}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list2->[0]->{phrase}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list2->[0]->{comment}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list2->[1]->{user}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list2->[1]->{host}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list2->[1]->{phrase}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list2->[1]->{comment}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list3->[0]->{user}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list3->[0]->{host}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list3->[0]->{phrase}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list3->[0]->{comment}, 'TieScalarCounter', "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}";
+	tie $list4->[0]->{user}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list4->[0]->{host}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list4->[0]->{phrase}, 'TieScalarCounter', "L\x{e1}tin1";
+	tie $list4->[0]->{comment}, 'TieScalarCounter', "L\x{e1}tin1";
+	is(
+		format_email_groups($str1 => $list1, $str2 => $list2),
+		"str1: ASCII <ASCII\@ASCII> (ASCII), \x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404} <ASCII\@L\x{e1}tin1> (ASCII);, str2: \x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404} <\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}\@\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}> (\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}), L\x{e1}tin1 <L\x{e1}tin1\@L\x{e1}tin1> (L\x{e1}tin1);",
+		'test method format_email_groups() with magic scalars in ASCII, Latin1 and UNICODE',
+	);
+	is(
+		format_email_groups($str3 => $list3),
+		"str3: \x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404} <\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}\@\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}> (\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404});",
+		'test method format_email_groups() with magic scalars in UNICODE',
+	);
+	is(
+		format_email_groups($str4 => $list4),
+		"str4: L\x{e1}tin1 <L\x{e1}tin1\@L\x{e1}tin1> (L\x{e1}tin1);",
+		'test method format_email_groups() with magic scalars in Latin1',
+	);
+	is(tied($str1)->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+	is(tied($str2)->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+	is(tied($str3)->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+	is(tied($str4)->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+	is(tied($str1)->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+	is(tied($str2)->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+	is(tied($str3)->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+	is(tied($str4)->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+	foreach ( @{$list1}, @{$list2}, @{$list3}, @{$list4} ) {
+		is(tied($_->{user})->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+		is(tied($_->{host})->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+		is(tied($_->{phrase})->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+		is(tied($_->{comment})->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+		is(tied($_->{user})->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+		is(tied($_->{host})->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+		is(tied($_->{phrase})->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+		is(tied($_->{comment})->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+	}
+	SKIP: {
+		skip 'perl version without SvPV_nomg() support', 3 if $] < 5.007002;
+		tie my $str5, 'TieScalarCounter', undef;
+		is(
+			format_email_groups($str5 => []),
+			'',
+			'test method format_email_groups() with magic scalar which is undef',
+		);
+		is(tied($str5)->{fetch}, 1, 'test method format_email_groups() that called GET magic exacly once');
+		is(tied($str5)->{store}, 0, 'test method format_email_groups() that did not call SET magic');
+	}
+}
+
+#########################
+
+{
 
 	my $undef = undef;
 
@@ -993,6 +1074,24 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 #########################
 
 {
+	my $undef = undef;
+	tie my $input, 'TieScalarCounter', 'winston.smith@recdep.minitrue';
+	is_deeply(
+		[ parse_email_groups($input) ],
+		[
+			$undef => [
+				bless({ phrase => undef, user => 'winston.smith', host => 'recdep.minitrue', comment => undef }, 'Email::Address::XS::Derived'),
+			],
+		],
+		'test method parse_email_groups() with magic scalar',
+	);
+	is(tied($input)->{fetch}, 1, 'test method parse_email_groups() that called GET magic exacly once');
+	is(tied($input)->{store}, 0, 'test method parse_email_groups() that did not call SET magic');
+}
+
+#########################
+
+{
 
 	my $undef = undef;
 	my $str = 'str';
@@ -1034,4 +1133,25 @@ sub new {
 
 sub user {
 	return 'not_derived';
+}
+
+#########################
+
+package TieScalarCounter;
+
+sub TIESCALAR {
+	my ($class, $value) = @_;
+	return bless { fetch => 0, store => 0, value => $value }, $class;
+}
+
+sub FETCH {
+	my ($self) = @_;
+	$self->{fetch}++;
+	return $self->{value};
+}
+
+sub STORE {
+	my ($self, $value) = @_;
+	$self->{store}++;
+	$self->{value} = $value;
 }
