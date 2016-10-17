@@ -111,7 +111,7 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 #endif
 
 	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string)) {
-		scalar = sv_2mortal(newSVpv(string, len));
+		scalar = sv_2mortal(newSVpvn(string, len));
 		return SvPVutf8_nolen(scalar);
 	}
 
