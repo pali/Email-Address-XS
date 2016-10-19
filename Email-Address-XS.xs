@@ -79,11 +79,14 @@ static void carp(bool fatal, const char *format, ...)
 		croak_sv(scalar);
 }
 
-static bool string_needs_utf8_upgrade(const char *ptr)
+static bool string_needs_utf8_upgrade(const char *str, STRLEN len)
 {
-	while (*ptr)
-		if (!UTF8_IS_INVARIANT(*ptr++))
+	STRLEN i;
+
+	for (i = 0; i < len; ++i)
+		if (!UTF8_IS_INVARIANT(str[i]))
 			return true;
+
 	return false;
 }
 
@@ -110,7 +113,7 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 		return NULL;
 #endif
 
-	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string)) {
+	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string, len)) {
 		scalar = sv_2mortal(newSVpvn(string, len));
 		return SvPVutf8_nolen(scalar);
 	}
