@@ -177,7 +177,7 @@ static void set_perl_hash_value(pTHX_ HV *hash, const char *key, const char *val
 	if (utf8 && value)
 		sv_utf8_decode(scalar);
 
-	hv_store(hash, key, klen, scalar, 0);
+	(void)hv_store(hash, key, klen, scalar, 0);
 }
 
 static HV *get_perl_class_from_perl_cv(pTHX_ CV *cv)
