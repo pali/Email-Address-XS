@@ -965,8 +965,8 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is(tied($_->{phrase})->{store}, 0, 'test method format_email_groups() that did not call SET magic');
 		is(tied($_->{comment})->{store}, 0, 'test method format_email_groups() that did not call SET magic');
 	}
-	SKIP: {
-		skip 'perl version without SvPV_nomg() support', 3 if $] < 5.007002;
+	{
+		BEGIN { 'warnings'->unimport('uninitialized') if $] < 5.007002 }; # perl version without SvPV_nomg() support when tied undefined scalar generates warning
 		tie my $str5, 'TieScalarCounter', undef;
 		is(
 			format_email_groups($str5 => []),
