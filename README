@@ -1,18 +1,18 @@
 Email-Address-XS
 ================
 
-This module implements RFC 2822 parser and formatter of email groups
-or addresses. It parses input string from email headers which contain
-a list of email addresses or a group of email addresses (like From,
-To, Cc, Bcc, Reply-To, Sender, ...). Also it can generate string
-values for those headers from list of email addresses objects.
+This module implements RFC 2822 parser and formatter of email addresses
+and groups. It parses an input string from email headers which contain
+a list of email addresses or a groups of email addresses (like From,
+To, Cc, Bcc, Reply-To, Sender, ...). Also it can generate a string
+value for those headers from a list of email addresses objects.
 
-Parser and formatter functionality are implemented in XS and use
+Parser and formatter functionality is implemented in XS and uses
 shared code from Dovecot IMAP server.
 
 It is a drop-in replacement for the Email::Address module which has
 several security issues. E.g. issue CVE-2015-7686 (Algorithmic
-complexity vulnerability), which allows remote attackers to cause
+complexity vulnerability) which allows remote attackers to cause
 denial of service, is still present in Email::Address version 1.908.
 
 Email::Address::XS module was created to finally fix CVE-2015-7686.
@@ -44,7 +44,7 @@ None
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2015-2016 by Pali <pali@cpan.org>
+Copyright (C) 2015-2017 by Pali <pali@cpan.org>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.6.0 or,

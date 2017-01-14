@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2016 by Pali <pali@cpan.org>
+# Copyright (c) 2015-2017 by Pali <pali@cpan.org>
 
 package Email::Address::XS;
 
@@ -18,7 +18,7 @@ XSLoader::load(__PACKAGE__, $VERSION);
 
 =head1 NAME
 
-Email::Address::XS - RFC 2822 Parse and format email groups or addresses
+Email::Address::XS - Parse and format RFC 2822 email addresses and groups
 
 =head1 SYNOPSIS
 
@@ -51,13 +51,13 @@ Email::Address::XS - RFC 2822 Parse and format email groups or addresses
 =head1 DESCRIPTION
 
 This module implements L<RFC 2822|https://tools.ietf.org/html/rfc2822>
-parser and formatter of email groups or addresses. It parses input
+parser and formatter of email addresses and groups. It parses an input
 string from email headers which contain a list of email addresses or
-a group of email addresses (like From, To, Cc, Bcc, Reply-To, Sender,
-...). Also it can generate string values for those headers from list
-of email addresses objects.
+a groups of email addresses (like From, To, Cc, Bcc, Reply-To, Sender,
+...). Also it can generate a string value for those headers from a
+list of email addresses objects.
 
-Parser and formatter functionality are implemented in XS and use
+Parser and formatter functionality is implemented in XS and uses
 shared code from Dovecot IMAP server.
 
 It is a drop-in replacement for L<the Email::Address module|Email::Address>
@@ -81,14 +81,13 @@ instead of L<the Email::Address::List module|Email::Address::List>.
 
 =head2 EXPORT
 
-None by default. Exportable methods are:
+None by default. Exportable functions are:
 C<parse_email_addresses>,
 C<parse_email_groups>,
 C<format_email_addresses>,
-C<format_email_groups>
-.
+C<format_email_groups>.
 
-=head2 Exportable Methods
+=head2 Exportable Functions
 
 =over 4
 
@@ -102,7 +101,7 @@ C<format_email_groups>
   my $string = format_email_addresses(@addresses);
   print $string;
 
-Takes list of email address objects and returns one formatted string
+Takes a list of email address objects and returns one formatted string
 of those email addresses.
 
 =cut
@@ -139,9 +138,9 @@ group is not undef then address list is formatted inside named group.
   my @addresses = parse_email_addresses($string);
   # @addresses now contains three Email::Address::XS objects, one for each address
 
-Parses input string and returns list of Email::Address::XS objects.
-Optional second string argument specifies class name for blessing new
-objects.
+Parses an input string and returns a list of Email::Address::XS
+objects. Optional second string argument specifies class name for
+blessing new objects.
 
 =cut
 
@@ -160,13 +159,13 @@ sub parse_email_addresses {
   my @groups = parse_email_groups($string);
   # @groups now contains list ('Brotherhood' => [ $winstons_object, $julias_object ], $undef => [ $users_object ], 'undisclosed-recipients' => [])
 
-Like C<parse_email_addresses> but this method returns a list of pairs:
-a group display name and a reference to list of addresses which
-belongs to that named group. Undef value for group means that
-following list of addresses is not inside any named group. The output
-is in same format as the input for method C<format_email_groups>.
-Function preserves order of groups and does not do any de-duplication
-or merging.
+Like C<parse_email_addresses> but this function returns a list of
+pairs: a group display name and a reference to a list of addresses
+which belongs to that named group. An undef value for a group means
+that a following list of addresses is not inside any named group. An
+output is in a same format as a input for the function
+C<format_email_groups>. This function preserves order of groups and
+does not do any de-duplication or merging.
 
 =back
 
@@ -185,16 +184,16 @@ or merging.
 
 Constructs and returns a new C<Email::Address::XS> object. Takes named
 list of arguments: phrase, address, user, host, comment and copy.
-Argument address takes precedence over user and host.
+An argument address takes precedence over user and host.
 
-When argument copy is specifed, then it expects Email::Address::XS
-object and cloned copy of this object is returned. In this case all
-other parameters are ignored.
+When an argument copy is specified then it is expected an
+Email::Address::XS object and a cloned copy of that object is
+returned. All other parameters are ignored.
 
 Old syntax L<from the Email::Address module|Email::Address/new> is
 supported too. Takes one to four positional arguments: phrase, address
-comment, and original string. Argument original is deprecated and
-ignored. Passing it throw warning.
+comment, and original string. An argument original is deprecated and
+ignored. Passing it throws a warning.
 
 =cut
 
@@ -229,7 +228,7 @@ sub new {
 			$args{host} = $args{copy}->host();
 			delete $args{address};
 		} else {
-			carp 'Named argument copy does not contain valid object';
+			carp 'Named argument copy does not contain a valid object';
 		}
 	}
 
@@ -253,10 +252,11 @@ sub new {
   my $winstons_address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)');
   my @user_addresses = Email::Address::XS->parse('user1@oceania, user2@oceania');
 
-Parses input string and returns list of Email::Address::XS objects. Same
-as function C<parse_email_addresses> but this one is class method.
+Parses an input string and returns a list of an Email::Address::XS
+objects. Same as the function C<parse_email_addresses> but this one is
+class method.
 
-In scalar context it returns just first parsed object.
+In scalar context this function returns just first parsed object.
 
 =cut
 
@@ -276,7 +276,7 @@ sub parse {
 
   my $string = $address->format();
 
-Returns formatted email address as a string.
+Returns formatted Email::Address::XS object as a string.
 
 =cut
 
@@ -290,7 +290,7 @@ sub format {
   my $phrase = $address->phrase();
   $address->phrase('Winston Smith');
 
-Accessor and mutator for the phrase (display name) portion of an address.
+Accessor and mutator for the phrase (display name).
 
 =cut
 
@@ -305,7 +305,7 @@ sub phrase {
   my $user = $address->user();
   $address->user('winston.smith');
 
-Accessor and mutator for the unescaped user portion of an address's address.
+Accessor and mutator for the unescaped user part of an address.
 
 =cut
 
@@ -321,7 +321,7 @@ sub user {
   my $host = $address->host();
   $address->host('recdep.minitrue');
 
-Accessor and mutator for the host portion of an address's address.
+Accessor and mutator for the unescaped host part of an address.
 
 =cut
 
@@ -337,14 +337,14 @@ sub host {
   my $string_address = $address->address();
   $address->address('winston.smith@recdep.minitrue');
 
-Accessor and mutator for the escaped address portion of an address.
+Accessor and mutator for the escaped address.
 
-Internally this module stores user and host portion of an address's
-address separately. Private method C<compose_address> is used for
-composing full address portion and private method C<split_address> for
-splitting into user and host parts. If splitting new address into
-these two parts is not possible then this method return undef and set
-both parts to undef.
+Internally this module stores a user and a host part of an address
+separately. Private method C<compose_address> is used for composing
+full address and private method C<split_address> for splitting into a
+user and a host parts. If splitting new address into these two parts
+is not possible then this method returns undef and sets both parts to
+undef.
 
 =cut
 
@@ -377,10 +377,10 @@ sub address {
   my $comment = $address->comment();
   $address->comment('Records Department');
 
-Accessor and mutator for the comment which is formatted after address.
-Comment can contain another nested comments in round brackets. When
-setting new comment this method check if brackets are balanced. If not
-undef is set and returned.
+Accessor and mutator for the comment which is formatted after an
+address. A comment can contain another nested comments in round
+brackets. When setting new comment this method check if brackets are
+balanced. If not undef is set and returned.
 
 =cut
 
@@ -404,9 +404,10 @@ sub comment {
 
   my $name = $address->name();
 
-This method tries to return the name belonging to the address. It
-returns C<phrase> or C<comment> or C<user> portion of C<address> or
-empty string (first defined value in this order). Never returns undef.
+This method tries to return a name which belongs to the address. It
+returns either C<phrase> or C<comment> or C<user> part of the address
+or empty string (first defined value in this order). But it never
+returns undef.
 
 =cut
 
@@ -450,30 +451,30 @@ use overload '""' => sub {
 
 =back
 
-=head2 Deprecated Methods and Variables
+=head2 Deprecated Functions, Methods and Variables
 
 For compatibility with L<the Email::Address module|Email::Address>
-there are defined some deprecated methods and variables. Do not use
-them in new code. Their usage throw warnings.
+there are defined some deprecated functions, methods and variables.
+Do not use them in new code. Their usage throws warnings.
 
 Altering deprecated variable C<$Email:Address::XS::STRINGIFY> changes
 method which is called for objects stringification.
 
-Deprecated cache methods C<purge_cache>, C<disable_cache> and
+Deprecated cache functions C<purge_cache>, C<disable_cache> and
 C<enable_cache> are noop do nothing.
 
 =cut
 
 sub purge_cache {
-	carp 'Method purge_cache is deprecated and does nothing';
+	carp 'Function purge_cache is deprecated and does nothing';
 }
 
 sub disable_cache {
-	carp 'Method disable_cache is deprecated and does nothing';
+	carp 'Function disable_cache is deprecated and does nothing';
 }
 
 sub enable_cache {
-	carp 'Method enable_cache is deprecated and does nothing';
+	carp 'Function enable_cache is deprecated and does nothing';
 }
 
 =pod
@@ -502,7 +503,7 @@ Pali E<lt>pali@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2015-2016 by Pali E<lt>pali@cpan.orgE<gt>
+Copyright (C) 2015-2017 by Pali E<lt>pali@cpan.orgE<gt>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.6.0 or,
