@@ -31,6 +31,7 @@
 
 void i_panic(const char *format, ...);
 
+#ifdef DEBUG
 #define i_assert(expr) \
 	do { if (!(expr)) \
 	i_panic("file %s: line %d (%s): assertion failed: (%s)",	\
@@ -39,6 +40,9 @@ void i_panic(const char *format, ...);
 		__FUNCTION__,						\
 		#expr);							\
 	} while ( 0 )
+#else
+#define i_assert(expr)
+#endif
 
 typedef struct {
 	char *buf;
