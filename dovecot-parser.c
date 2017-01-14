@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2002-2015 Dovecot authors
- * Copyright (c) 2015-2016 Pali <pali@cpan.org>
+ * Copyright (c) 2002-2017 Dovecot authors
+ * Copyright (c) 2015-2017 Pali <pali@cpan.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -299,7 +299,7 @@ static int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 						     ctx->data - start);
 				}
 				ctx->data++;
-				return ctx->data != ctx->end;
+				return ctx->data != ctx->end ? 1 : 0;
 			}
 			break;
 		case '\\':
@@ -336,7 +336,7 @@ static int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 		if (rfc822_skip_comment(ctx) < 0)
 			return -1;
 	}
-	return ctx->data != ctx->end;
+	return ctx->data != ctx->end ? 1 : 0;
 }
 
 /* Like parse_atom() but don't stop at '.' */
@@ -679,7 +679,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 		}
 	}
 
-	return ctx->parser.data != ctx->parser.end;
+	return ctx->parser.data != ctx->parser.end ? 1 : 0;
 }
 
 static int parse_addr_spec(struct message_address_parser_context *ctx)
@@ -841,7 +841,8 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 	int ret = 0;
 
 	/* address-list    = (address *("," address)) / obs-addr-list */
-	while (max_addresses-- > 0) {
+	while (max_addresses > 0) {
+		max_addresses--;
 		if ((ret = parse_address(ctx)) == 0)
 			break;
 		if (*ctx->parser.data != ',') {
@@ -960,7 +961,7 @@ void message_address_write(char **output, const struct message_address *addr)
 				   name, others are NULL. */
 				if (addr->mailbox != NULL && *addr->mailbox != '\0') {
 					/* check for MIME encoded-word */
-					if (strstr(addr->mailbox, "=?"))
+					if (strstr(addr->mailbox, "=?") != NULL)
 						/* MIME encoded-word MUST NOT appear within a 'quoted-string'
 						   so escaping and quoting of phrase is not possible, instead
 						   use obsolete RFC822 phrase syntax which allow spaces */
