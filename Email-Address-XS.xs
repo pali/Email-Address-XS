@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016 by Pali <pali@cpan.org> */
+/* Copyright (c) 2015-2017 by Pali <pali@cpan.org> */
 
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
@@ -66,12 +66,10 @@ static void carp(bool fatal, const char *format, ...)
 	SV *scalar;
 
 	va_start(args, format);
-	scalar = vnewSVpvf(format, &args);
+	scalar = sv_2mortal(vnewSVpvf(format, &args));
 	va_end(args);
 
 	append_carp_shortmess(aTHX_ scalar);
-
-	sv_2mortal(scalar);
 
 	if (!fatal)
 		warn_sv(scalar);
