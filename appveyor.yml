@@ -16,4 +16,4 @@ build_script:
   - perl Makefile.PL && dmake
 
 test_script:
-  - dmake test
+  - dmake test TEST_VERBOSE=1
