@@ -220,7 +220,7 @@ unsigned char rfc822_atext_chars[256] = {
 #define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
 
 /* quote with "" and escape all '\', '"' and "'" characters if need */
-void str_append_maybe_escape(string_t *str, const char *cstr, bool escape_dot)
+static void str_append_maybe_escape(string_t *str, const char *cstr, bool escape_dot)
 {
 	const char *p;
 
