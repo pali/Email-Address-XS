@@ -13,7 +13,7 @@ install:
   - perl -V
 
 build_script:
-  - perl Makefile.PL && dmake
+  - perl Makefile.PL && dmake OPTIMIZE="-W -Wall -O2 -g"
 
 test_script:
   - dmake test TEST_VERBOSE=1
