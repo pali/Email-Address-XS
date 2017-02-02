@@ -506,7 +506,7 @@ CODE:
 	RETVAL = newSVpv(string, 0);
 	if (utf8)
 		sv_utf8_decode(RETVAL);
-	free(string);
+	string_free(string);
 OUTPUT:
 	RETVAL
 
@@ -568,7 +568,7 @@ CODE:
 	RETVAL = newSVpv(string, 0);
 	if (utf8)
 		sv_utf8_decode(RETVAL);
-	free(string);
+	string_free(string);
 OUTPUT:
 	RETVAL
 
@@ -590,8 +590,8 @@ PPCODE:
 	split_address(string, &mailbox, &domain);
 	mailbox_scalar = mailbox ? newSVpv(mailbox, 0) : newSV(0);
 	domain_scalar = domain ? newSVpv(domain, 0) : newSV(0);
-	free(mailbox);
-	free(domain);
+	string_free(mailbox);
+	string_free(domain);
 	if (utf8) {
 		sv_utf8_decode(mailbox_scalar);
 		sv_utf8_decode(domain_scalar);

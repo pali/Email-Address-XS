@@ -1084,3 +1084,8 @@ void split_address(const char *input, char **mailbox, char **domain)
 
 	str_free(&ctx.str);
 }
+
+void string_free(char *string)
+{
+	free(string);
+}
