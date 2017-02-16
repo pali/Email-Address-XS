@@ -635,4 +635,7 @@ PREINIT:
 	SV *object = items >= 2 ? ST(1) : &PL_sv_undef;
 	const char *class_string = get_perl_scalar_string_value(aTHX_ class, "class", false);
 CODE:
-	is_class_object(aTHX_ class_string, object) ? XSRETURN_YES : XSRETURN_NO;
+	if (is_class_object(aTHX_ class_string, object))
+		XSRETURN_YES;
+	else
+		XSRETURN_NO;

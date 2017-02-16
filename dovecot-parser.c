@@ -29,6 +29,10 @@
 
 #include "dovecot-parser.h"
 
+#ifndef SIZE_MAX
+#define SIZE_MAX ((size_t)-1)
+#endif
+
 void i_panic(const char *format, ...);
 
 #ifdef DEBUG
@@ -99,12 +103,12 @@ static void str_free(string_t **str)
 	*str = NULL;
 }
 
-static inline const char *str_c(string_t *str)
+static const char *str_c(string_t *str)
 {
 	return str->buf;
 }
 
-static inline size_t str_len(const string_t *str)
+static size_t str_len(const string_t *str)
 {
 	return str->len;
 }
@@ -136,12 +140,12 @@ static void str_append_data(string_t *str, const void *data, size_t len)
 	str->buf[str->len] = 0;
 }
 
-static inline void str_append(string_t *str, const char *cstr)
+static void str_append(string_t *str, const char *cstr)
 {
 	str_append_data(str, cstr, strlen(cstr));
 }
 
-static inline void str_append_c(string_t *str, unsigned char chr)
+static void str_append_c(string_t *str, unsigned char chr)
 {
 	str_append_data(str, &chr, 1);
 }
