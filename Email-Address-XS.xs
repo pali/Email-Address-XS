@@ -149,7 +149,7 @@ static SV *get_perl_hash_scalar(pTHX_ HV *hash, const char *key)
 	return *scalar_ptr;
 }
 
-static const char *get_perl_hash_value(pTHX_ HV *hash, const char *key, bool utf8)
+static const char *get_perl_hash_value(pTHX_ HV *hash, const char *key, bool utf8, bool *taint)
 {
 	SV *scalar;
 
@@ -157,10 +157,13 @@ static const char *get_perl_hash_value(pTHX_ HV *hash, const char *key, bool utf
 	if (!scalar)
 		return NULL;
 
+	if (!*taint && SvTAINTED(scalar))
+		*taint = true;
+
 	return get_perl_scalar_value(aTHX_ scalar, utf8, true);
 }
 
-static void set_perl_hash_value(pTHX_ HV *hash, const char *key, const char *value, bool utf8)
+static void set_perl_hash_value(pTHX_ HV *hash, const char *key, const char *value, bool utf8, bool taint)
 {
 	I32 klen;
 	SV *scalar;
@@ -174,6 +177,9 @@ static void set_perl_hash_value(pTHX_ HV *hash, const char *key, const char *val
 
 	if (utf8 && value)
 		sv_utf8_decode(scalar);
+
+	if (taint)
+		SvTAINTED_on(scalar);
 
 	(void)hv_store(hash, key, klen, scalar, 0);
 }
@@ -274,7 +280,7 @@ static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 inde
 
 }
 
-static void message_address_add_from_perl_array(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, AV *array, I32 index1, I32 index2, const char *class)
+static void message_address_add_from_perl_array(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, AV *array, I32 index1, I32 index2, const char *class)
 {
 	HV *hash;
 	const char *name;
@@ -286,10 +292,10 @@ static void message_address_add_from_perl_array(pTHX_ struct message_address **f
 	if (!hash)
 		return;
 
-	name = get_perl_hash_value(aTHX_ hash, "phrase", utf8);
-	mailbox = get_perl_hash_value(aTHX_ hash, "user", utf8);
-	domain = get_perl_hash_value(aTHX_ hash, "host", utf8);
-	comment = get_perl_hash_value(aTHX_ hash, "comment", utf8);
+	name = get_perl_hash_value(aTHX_ hash, "phrase", utf8, taint);
+	mailbox = get_perl_hash_value(aTHX_ hash, "user", utf8, taint);
+	domain = get_perl_hash_value(aTHX_ hash, "host", utf8, taint);
+	comment = get_perl_hash_value(aTHX_ hash, "comment", utf8, taint);
 
 	if (mailbox && !mailbox[0])
 		mailbox = NULL;
@@ -340,7 +346,7 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name, bool w
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
+static void message_address_add_from_perl_group(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
 {
 	I32 len;
 	I32 index2;
@@ -355,10 +361,13 @@ static void message_address_add_from_perl_group(pTHX_ struct message_address **f
 		message_address_add(first_address, last_address, NULL, NULL, group_name, NULL, NULL);
 
 	for (index2 = 0; index2 < len; ++index2)
-		message_address_add_from_perl_array(aTHX_ first_address, last_address, utf8, array, index1, index2, class);
+		message_address_add_from_perl_array(aTHX_ first_address, last_address, utf8, taint, array, index1, index2, class);
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, NULL, NULL, NULL, NULL);
+
+	if (!*taint && SvTAINTED(scalar_group))
+		*taint = true;
 }
 
 #ifndef WITHOUT_SvPV_nomg
@@ -419,7 +428,7 @@ static int count_address_groups(struct message_address *first_address)
 	return count;
 }
 
-static bool get_next_perl_address_group(pTHX_ struct message_address **address, SV **group_scalar, SV **addresses_scalar, HV *class, bool utf8)
+static bool get_next_perl_address_group(pTHX_ struct message_address **address, SV **group_scalar, SV **addresses_scalar, HV *class, bool utf8, bool taint)
 {
 	HV *hash;
 	SV *object;
@@ -440,6 +449,9 @@ static bool get_next_perl_address_group(pTHX_ struct message_address **address, 
 	if (utf8 && in_group && (*address)->mailbox)
 		sv_utf8_decode(*group_scalar);
 
+	if (taint)
+		SvTAINTED_on(*group_scalar);
+
 	addresses_array = newAV();
 	*addresses_scalar = newRV_noinc((SV *)addresses_array);
 
@@ -449,10 +461,10 @@ static bool get_next_perl_address_group(pTHX_ struct message_address **address, 
 	while (*address && (*address)->domain) {
 		hash = newHV();
 
-		set_perl_hash_value(aTHX_ hash, "phrase", (*address)->name, utf8);
-		set_perl_hash_value(aTHX_ hash, "user", ( (*address)->mailbox && (*address)->mailbox[0] ) ? (*address)->mailbox : NULL, utf8);
-		set_perl_hash_value(aTHX_ hash, "host", ( (*address)->domain && (*address)->domain[0] ) ? (*address)->domain : NULL, utf8);
-		set_perl_hash_value(aTHX_ hash, "comment", (*address)->comment, utf8);
+		set_perl_hash_value(aTHX_ hash, "phrase", (*address)->name, utf8, taint);
+		set_perl_hash_value(aTHX_ hash, "user", ( (*address)->mailbox && (*address)->mailbox[0] ) ? (*address)->mailbox : NULL, utf8, taint);
+		set_perl_hash_value(aTHX_ hash, "host", ( (*address)->domain && (*address)->domain[0] ) ? (*address)->domain : NULL, utf8, taint);
+		set_perl_hash_value(aTHX_ hash, "comment", (*address)->comment, utf8, taint);
 
 		hash_ref = newRV_noinc((SV *)hash);
 		object = sv_bless(hash_ref, class);
@@ -478,6 +490,7 @@ format_email_groups(...)
 PREINIT:
 	I32 i;
 	bool utf8;
+	bool taint;
 	char *string;
 	struct message_address *first_address;
 	struct message_address *last_address;
@@ -491,6 +504,7 @@ INIT:
 CODE:
 	first_address = NULL;
 	last_address = NULL;
+	taint = false;
 #ifndef WITHOUT_SvPV_nomg
 	utf8 = false;
 	for (i = 0; i < items; i += 2)
@@ -500,12 +514,14 @@ CODE:
 	utf8 = true;
 #endif
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, ST(i), ST(i+1), i, this_class_name);
+		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, &taint, ST(i), ST(i+1), i, this_class_name);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
 	RETVAL = newSVpv(string, 0);
 	if (utf8)
 		sv_utf8_decode(RETVAL);
+	if (taint)
+		SvTAINTED_on(RETVAL);
 	string_free(string);
 OUTPUT:
 	RETVAL
@@ -520,6 +536,7 @@ PREINIT:
 	SV *group_scalar;
 	SV *addresses_scalar;
 	bool utf8;
+	bool taint;
 	const char *input;
 	const char *class_name;
 	struct message_address *address;
@@ -531,6 +548,7 @@ INIT:
 	class_scalar = items >= 2 ? ST(1) : NULL;
 	input = get_perl_scalar_string_value(aTHX_ string_scalar, "string", false);
 	utf8 = SvUTF8(string_scalar);
+	taint = SvTAINTED(string_scalar);
 	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ class_scalar ? class_scalar : NULL, cv);
 	if (class_scalar && !sv_derived_from(class_scalar, this_class_name)) {
 		class_name = HvNAME(hv_class);
@@ -542,7 +560,7 @@ PPCODE:
 	count = count_address_groups(first_address);
 	EXTEND(SP, count * 2);
 	address = first_address;
-	while (get_next_perl_address_group(aTHX_ &address, &group_scalar, &addresses_scalar, hv_class, utf8)) {
+	while (get_next_perl_address_group(aTHX_ &address, &group_scalar, &addresses_scalar, hv_class, utf8, taint)) {
 		PUSHs(sv_2mortal(group_scalar));
 		PUSHs(sv_2mortal(addresses_scalar));
 	}
@@ -555,6 +573,7 @@ PREINIT:
 	const char *mailbox;
 	const char *domain;
 	bool utf8;
+	bool taint;
 	SV *mailbox_scalar;
 	SV *domain_scalar;
 INIT:
@@ -563,11 +582,14 @@ INIT:
 	mailbox = get_perl_scalar_string_value(aTHX_ mailbox_scalar, "mailbox", true);
 	domain = get_perl_scalar_string_value(aTHX_ domain_scalar, "domain", true);
 	utf8 = (SvUTF8(mailbox_scalar) || SvUTF8(domain_scalar));
+	taint = (SvTAINTED(mailbox_scalar) || SvTAINTED(domain_scalar));
 CODE:
 	compose_address(&string, mailbox, domain);
 	RETVAL = newSVpv(string, 0);
 	if (utf8)
 		sv_utf8_decode(RETVAL);
+	if (taint)
+		SvTAINTED_on(RETVAL);
 	string_free(string);
 OUTPUT:
 	RETVAL
@@ -579,6 +601,7 @@ PREINIT:
 	char *mailbox;
 	char *domain;
 	bool utf8;
+	bool taint;
 	SV *string_scalar;
 	SV *mailbox_scalar;
 	SV *domain_scalar;
@@ -586,6 +609,7 @@ INIT:
 	string_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
 	string = get_perl_scalar_string_value(aTHX_ string_scalar, "string", false);
 	utf8 = SvUTF8(string_scalar);
+	taint = SvTAINTED(string_scalar);
 PPCODE:
 	split_address(string, &mailbox, &domain);
 	mailbox_scalar = mailbox ? newSVpv(mailbox, 0) : newSV(0);
@@ -595,6 +619,10 @@ PPCODE:
 	if (utf8) {
 		sv_utf8_decode(mailbox_scalar);
 		sv_utf8_decode(domain_scalar);
+	}
+	if (taint) {
+		SvTAINTED_on(mailbox_scalar);
+		SvTAINTED_on(domain_scalar);
 	}
 	EXTEND(SP, 2);
 	PUSHs(sv_2mortal(mailbox_scalar));
