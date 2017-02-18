@@ -10,7 +10,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More 'no_plan';
+use Test::More tests => 113;
 
 #########################
 
