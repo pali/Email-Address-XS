@@ -7,6 +7,11 @@
 
 #include "dovecot-parser.h"
 
+/* Perl pre 5.6.1 support */
+#if PERL_VERSION < 6 || (PERL_VERSION == 6 && PERL_SUBVERSION < 1)
+#define BROKEN_SvPVutf8
+#endif
+
 /* Perl pre 5.7.2 support */
 #ifndef SvPV_nomg
 #define WITHOUT_SvPV_nomg
@@ -14,7 +19,7 @@
 
 /* Perl pre 5.8.0 support */
 #ifndef UTF8_IS_INVARIANT
-#define UTF8_IS_INVARIANT UTF8_IS_ASCII
+#define UTF8_IS_INVARIANT(c) (((U8)c) < 0x80)
 #endif
 
 /* Perl pre 5.13.1 support */
@@ -113,7 +118,12 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 
 	if (utf8 && !SvUTF8(scalar) && string_needs_utf8_upgrade(string, len)) {
 		scalar = sv_2mortal(newSVpvn(string, len));
+#ifdef BROKEN_SvPVutf8
+		sv_utf8_upgrade(scalar);
+		return SvPVX(scalar);
+#else
 		return SvPVutf8_nolen(scalar);
+#endif
 	}
 
 	return string;
