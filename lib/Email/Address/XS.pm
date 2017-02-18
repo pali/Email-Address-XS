@@ -26,12 +26,15 @@ Email::Address::XS - Parse and format RFC 2822 email addresses and groups
 
   my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue', comment => 'Records Department');
   print $winstons_address->address();
+  # winston.smith@recdep.minitrue
 
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
   print $julias_address->format();
+  # Julia <julia@ficdep.minitrue>
 
   my $users_address = Email::Address::XS->parse('user <user@oceania>');
   print $users_address->host();
+  # oceania
 
 
   use Email::Address::XS qw(format_email_addresses format_email_groups parse_email_addresses parse_email_groups);
@@ -39,12 +42,17 @@ Email::Address::XS - Parse and format RFC 2822 email addresses and groups
 
   my $addresses_string = format_email_addresses($winstons_address, $julias_address, $users_address);
   print $addresses_string;
+  # "Winston Smith" <winston.smith@recdep.minitrue> (Records Department), Julia <julia@ficdep.minitrue>, user <user@oceania>
 
   my @addresses = parse_email_addresses($addresses_string);
   print 'address: ' . $_->address() . "\n" foreach @addresses;
+  # address: winston.smith@recdep.minitrue
+  # address: julia@ficdep.minitrue
+  # address: user@oceania
 
   my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $users_address ]);
   print $groups_string;
+  # Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue> (Records Department), Julia <julia@ficdep.minitrue>;, user <user@oceania>
 
   my @groups = parse_email_groups($groups_string);
 
@@ -100,6 +108,7 @@ C<format_email_groups>.
   my @addresses = ($winstons_address, $julias_address);
   my $string = format_email_addresses(@addresses);
   print $string;
+  # "Winston Smith" <winston@recdep.minitrue>, Julia <julia@ficdep.minitrue>
 
 Takes a list of email address objects and returns one formatted string
 of those email addresses.
@@ -122,9 +131,11 @@ sub format_email_addresses {
 
   my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $users_address ]);
   print $groups_string;
+  # Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, user@oceania
 
   my $undisclosed_string = format_email_groups('undisclosed-recipients' => []);
   print $undisclosed_string;
+  # undisclosed-recipients:;
 
 Like C<format_email_addresses> but this method takes pairs which
 consist of a group display name and a reference to address list. If a
@@ -250,7 +261,7 @@ sub new {
 =item parse
 
   my $winstons_address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)');
-  my @user_addresses = Email::Address::XS->parse('user1@oceania, user2@oceania');
+  my @users_addresses = Email::Address::XS->parse('user1@oceania, user2@oceania');
 
 Parses an input string and returns a list of an Email::Address::XS
 objects. Same as the function C<parse_email_addresses> but this one is
@@ -461,7 +472,7 @@ Altering deprecated variable C<$Email:Address::XS::STRINGIFY> changes
 method which is called for objects stringification.
 
 Deprecated cache functions C<purge_cache>, C<disable_cache> and
-C<enable_cache> are noop do nothing.
+C<enable_cache> are noop and do nothing.
 
 =cut
 
