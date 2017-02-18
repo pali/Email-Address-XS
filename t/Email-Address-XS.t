@@ -9,6 +9,12 @@
 use strict;
 use warnings FATAL => 'all';
 
+# perl version which needs "use utf8;" for comparing utf8 and latin1 strings
+BEGIN {
+	require utf8 if $] < 5.006001;
+	utf8->import() if $] < 5.006001;
+};
+
 use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
