@@ -468,7 +468,7 @@ For compatibility with L<the Email::Address module|Email::Address>
 there are defined some deprecated functions, methods and variables.
 Do not use them in new code. Their usage throws warnings.
 
-Altering deprecated variable C<$Email:Address::XS::STRINGIFY> changes
+Altering deprecated variable C<$Email::Address::XS::STRINGIFY> changes
 method which is called for objects stringification.
 
 Deprecated cache functions C<purge_cache>, C<disable_cache> and
