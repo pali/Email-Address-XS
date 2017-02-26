@@ -1,4 +1,5 @@
 language: perl
+
 perl:
   - "5.6.2"
   - "5.8"
@@ -13,26 +14,27 @@ perl:
   - "5.22"
   - "5.22-shrplib"
   - "5.24"
+
 matrix:
   include:
     - perl: "5.20"
-      env: COVERITY=1
+      env:
+        - secure: "UrBgPoJ5AyCrOC1b2seUN0hhlQX8g5ILazjJ7qY2owjPym2FHwWvoBPQAYbHaYkkdUjMAaK3VcOCTZhJVGj2ytEleDJlEE0gLQxxQfsxS/EwLakOmo/fWHWiTJejTqq41yl15mxFwY9OJ2W/jUHXtIuvmGXqKOmrKYhC7OW9nC/Ot3F+5A6NR5AkIF9L9zjRYm6mGEkjSUrSNSnIfAGjxuefM03P0nU5CKPCnz5CEG5y60jjyqSIln1YXwt26bw8vnz16t14tanew4QPAaZrGLJT7Rpv4jy0SjMtw57L9uJU20GJWW4HtXbGrCH9kBBxXFKWF0SiPUTr9+21Zp+9rqI/c+TGqNdFQefMTsNBmI59Bd4noJhEY8PIClWZRG2qgsnV0cCYXqa8RPjQ+ysUQTWGthn/kedvFMmAhiUBFwXMF4Ptk9UT1dsDWsMq8u5yJzRGeek3ArRTfSfe2sGkASxEjVpQRcjyzvH4aJGJYCO7iEjA0bTcRRxhWhLGiN1gKqC1MTZghXU0ZCUM3T9SLff5KnO/0+cztRHzmcb2Tf8X9eGp1O/Kkbmqjr1EGM2XNQ3WGRSH1BfngOrFbV6Nl5DWq/FEkoyqDIdfBwAdVpMXCV4PMv1CT7Tad+Ga9QUT/TIaZAow/FwSX9QtdIUOmULvLPhs5CFIz05andv7MqE="
+      addons:
+        coverity_scan:
+          project:
+            name: "pali/Email-Address-XS"
+            description: "Build submitted via Travis CI"
+          notification_email: pali@cpan.org
+          build_command_prepend: "perl Makefile.PL"
+          build_command: make
+          branch_pattern: master
+
 before_install:
-  - if [ "$COVERITY" = "1" -a "$TRAVIS_BRANCH" != "master" ]; then exit 0; fi
-  - if [ "$TRAVIS_PERL_VERSION" = "5.6.2" ]; then git clone git://github.com/travis-perl/helpers ~/perl-travis-helper && source ~/perl-travis-helper/init && build-perl && perl -V || exit 1; fi
-  - if [ "$COVERITY" != "1" ]; then perl Makefile.PL && make OPTIMIZE="-W -Wall -O2 -g" && make test TEST_VERBOSE=1; exit $?; fi
-script: true
+  - if [ "$TRAVIS_PERL_VERSION" = "5.6.2" ]; then eval $(curl https://travis-perl.github.io/init) --auto; fi
 
-env:
-  global:
-    - secure: "UrBgPoJ5AyCrOC1b2seUN0hhlQX8g5ILazjJ7qY2owjPym2FHwWvoBPQAYbHaYkkdUjMAaK3VcOCTZhJVGj2ytEleDJlEE0gLQxxQfsxS/EwLakOmo/fWHWiTJejTqq41yl15mxFwY9OJ2W/jUHXtIuvmGXqKOmrKYhC7OW9nC/Ot3F+5A6NR5AkIF9L9zjRYm6mGEkjSUrSNSnIfAGjxuefM03P0nU5CKPCnz5CEG5y60jjyqSIln1YXwt26bw8vnz16t14tanew4QPAaZrGLJT7Rpv4jy0SjMtw57L9uJU20GJWW4HtXbGrCH9kBBxXFKWF0SiPUTr9+21Zp+9rqI/c+TGqNdFQefMTsNBmI59Bd4noJhEY8PIClWZRG2qgsnV0cCYXqa8RPjQ+ysUQTWGthn/kedvFMmAhiUBFwXMF4Ptk9UT1dsDWsMq8u5yJzRGeek3ArRTfSfe2sGkASxEjVpQRcjyzvH4aJGJYCO7iEjA0bTcRRxhWhLGiN1gKqC1MTZghXU0ZCUM3T9SLff5KnO/0+cztRHzmcb2Tf8X9eGp1O/Kkbmqjr1EGM2XNQ3WGRSH1BfngOrFbV6Nl5DWq/FEkoyqDIdfBwAdVpMXCV4PMv1CT7Tad+Ga9QUT/TIaZAow/FwSX9QtdIUOmULvLPhs5CFIz05andv7MqE="
-
-addons:
-  coverity_scan:
-    project:
-      name: "pali/Email-Address-XS"
-      description: "Build submitted via Travis CI"
-    notification_email: pali@cpan.org
-    build_command_prepend: "perl Makefile.PL"
-    build_command: make
-    branch_pattern: master
+script:
+  - if [ "$COVERITY_SCAN_BRANCH" = "1" ]; then exit 0; fi
+  - perl Makefile.PL
+  - make OPTIMIZE="-W -Wall -O2 -g"
+  - make test TEST_VERBOSE=1
