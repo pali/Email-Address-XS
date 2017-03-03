@@ -34,7 +34,7 @@ before_install:
   - if [ "$TRAVIS_PERL_VERSION" = "5.6.2" ]; then eval $(curl https://travis-perl.github.io/init) --perl; function cpanm { :; }; fi
 
 script:
-  - if [ "$COVERITY_SCAN_BRANCH" = "1" ]; then exit 0; fi
+  - if [ -n "$COVERITY_SCAN_TOKEN" ]; then exit 0; fi
   - perl Makefile.PL
   - make OPTIMIZE="-W -Wall -O2 -g"
   - make test TEST_VERBOSE=1
