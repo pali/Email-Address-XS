@@ -11,7 +11,7 @@ our $VERSION = '1.00';
 use Carp;
 
 use base 'Exporter';
-our @EXPORT_OK = qw(parse_email_addresses parse_email_groups format_email_addresses format_email_groups);
+our @EXPORT_OK = qw(parse_email_addresses parse_email_groups format_email_addresses format_email_groups compose_address split_address);
 
 use XSLoader;
 XSLoader::load(__PACKAGE__, $VERSION);
@@ -93,7 +93,9 @@ None by default. Exportable functions are:
 C<parse_email_addresses>,
 C<parse_email_groups>,
 C<format_email_addresses>,
-C<format_email_groups>.
+C<format_email_groups>,
+C<compose_address>,
+C<split_address>.
 
 =head2 Exportable Functions
 
@@ -177,6 +179,24 @@ that a following list of addresses is not inside any named group. An
 output is in a same format as a input for the function
 C<format_email_groups>. This function preserves order of groups and
 does not do any de-duplication or merging.
+
+=item compose_address
+
+  use Email::Address::XS qw(compose_address);
+  my $string_address = compose_address($user, $host);
+
+Takes an unescaped user part and unescaped host part of an address
+and returns escaped address.
+
+=item split_address
+
+  use Email::Address::XS qw(split_address);
+  my ($user, $host) = split_address($string_address);
+
+Takes an escaped address and split it into pair of unescaped user
+part and unescaped host part of address. If splitting input address
+into these two parts is not possible then this function returns
+pair of undefs.
 
 =back
 
@@ -351,8 +371,8 @@ sub host {
 Accessor and mutator for the escaped address.
 
 Internally this module stores a user and a host part of an address
-separately. Private method C<compose_address> is used for composing
-full address and private method C<split_address> for splitting into a
+separately. Function C<compose_address> is used for composing
+full address and function C<split_address> for splitting into a
 user and a host parts. If splitting new address into these two parts
 is not possible then this method returns undef and sets both parts to
 undef.
