@@ -27,7 +27,7 @@ install:
 
 build_script:
   - perl Makefile.PL
-  - perl -MConfig -e "exec $Config{make}, 'OPTIMIZE=-W -Wall -O2 -g'"
+  - perl -MConfig -e "exec $Config{make}, 'OPTIMIZE=\"-W -Wall -O2 -g\"'"
 
 test_script:
   - perl -MConfig -e "exec $Config{make}, 'test', 'TEST_VERBOSE=1'"
