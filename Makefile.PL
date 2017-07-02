@@ -25,7 +25,7 @@ WriteMakefile(
 	TEST_REQUIRES => {
 		'Test::More' => '0',
 	},
-	eval $ExtUtils::MakeMaker::VERSION >= 6.68 ? (
+	eval { ExtUtils::MakeMaker->VERSION('6.68') } ? (
 	META_MERGE => {
 		'meta-spec' => {
 			version => 2,
