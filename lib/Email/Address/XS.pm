@@ -90,12 +90,12 @@ instead of L<the Email::Address::List module|Email::Address::List>.
 =head2 EXPORT
 
 None by default. Exportable functions are:
-C<parse_email_addresses>,
-C<parse_email_groups>,
-C<format_email_addresses>,
-C<format_email_groups>,
-C<compose_address>,
-C<split_address>.
+L<C<parse_email_addresses>|/parse_email_addresses>,
+L<C<parse_email_groups>|/parse_email_groups>,
+L<C<format_email_addresses>|/format_email_addresses>,
+L<C<format_email_groups>|/format_email_groups>,
+L<C<compose_address>|/compose_address>,
+L<C<split_address>|/split_address>.
 
 =head2 Exportable Functions
 
@@ -139,9 +139,10 @@ sub format_email_addresses {
   print $undisclosed_string;
   # undisclosed-recipients:;
 
-Like C<format_email_addresses> but this method takes pairs which
-consist of a group display name and a reference to address list. If a
-group is not undef then address list is formatted inside named group.
+Like L<C<format_email_addresses>|/format_email_addresses> but this
+method takes pairs which consist of a group display name and a
+reference to address list. If a group is not undef then address
+list is formatted inside named group.
 
 =item parse_email_addresses
 
@@ -172,13 +173,14 @@ sub parse_email_addresses {
   my @groups = parse_email_groups($string);
   # @groups now contains list ('Brotherhood' => [ $winstons_object, $julias_object ], $undef => [ $users_object ], 'undisclosed-recipients' => [])
 
-Like C<parse_email_addresses> but this function returns a list of
-pairs: a group display name and a reference to a list of addresses
-which belongs to that named group. An undef value for a group means
-that a following list of addresses is not inside any named group. An
-output is in a same format as a input for the function
-C<format_email_groups>. This function preserves order of groups and
-does not do any de-duplication or merging.
+Like L<C<parse_email_addresses>|/parse_email_addresses> but this
+function returns a list of pairs: a group display name and a
+reference to a list of addresses which belongs to that named group.
+An undef value for a group means that a following list of addresses
+is not inside any named group. An output is in a same format as a
+input for the function L<C<format_email_groups>|/format_email_groups>.
+This function preserves order of groups and does not do any
+de-duplication or merging.
 
 =item compose_address
 
@@ -284,8 +286,8 @@ sub new {
   my @users_addresses = Email::Address::XS->parse('user1@oceania, user2@oceania');
 
 Parses an input string and returns a list of an Email::Address::XS
-objects. Same as the function C<parse_email_addresses> but this one is
-class method.
+objects. Same as the function L<C<parse_email_addresses>|/parse_email_addresses>
+but this one is class method.
 
 In scalar context this function returns just first parsed object.
 
@@ -371,11 +373,11 @@ sub host {
 Accessor and mutator for the escaped address.
 
 Internally this module stores a user and a host part of an address
-separately. Function C<compose_address> is used for composing
-full address and function C<split_address> for splitting into a
-user and a host parts. If splitting new address into these two parts
-is not possible then this method returns undef and sets both parts to
-undef.
+separately. Function L<C<compose_address>|/compose_address> is used
+for composing full address and function L<C<split_address>|/split_address>
+for splitting into a user and a host parts. If splitting new address
+into these two parts is not possible then this method returns undef
+and sets both parts to undef.
 
 =cut
 
@@ -436,9 +438,9 @@ sub comment {
   my $name = $address->name();
 
 This method tries to return a name which belongs to the address. It
-returns either C<phrase> or C<comment> or C<user> part of the address
-or empty string (first defined value in this order). But it never
-returns undef.
+returns either L<C<phrase>|/phrase> or L<C<comment>|/comment> or
+L<C<user>|/user> part of the address or empty string (first defined
+value in this order). But it never returns undef.
 
 =cut
 
@@ -465,7 +467,7 @@ sub name {
   print "Winston's address is $address.";
   # Winston's address is "Winston Smith" <winston.smith@recdep.minitrue>.
 
-Objects stringify to C<format>.
+Objects stringify to L<C<format>|/format>.
 
 =cut
 
