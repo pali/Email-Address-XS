@@ -638,14 +638,13 @@ PPCODE:
 	PUSHs(sv_2mortal(mailbox_scalar));
 	PUSHs(sv_2mortal(domain_scalar));
 
-void
+bool
 is_obj(...)
 PREINIT:
 	SV *class = items >= 1 ? ST(0) : &PL_sv_undef;
 	SV *object = items >= 2 ? ST(1) : &PL_sv_undef;
 	const char *class_string = get_perl_scalar_string_value(aTHX_ class, "class", false);
 CODE:
-	if (is_class_object(aTHX_ class_string, object))
-		XSRETURN_YES;
-	else
-		XSRETURN_NO;
+	RETVAL = is_class_object(aTHX_ class_string, object);
+OUTPUT:
+	RETVAL
