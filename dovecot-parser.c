@@ -916,7 +916,7 @@ void message_address_free(struct message_address **addr)
 }
 
 struct message_address *
-message_address_parse(const char *input,
+message_address_parse(const char *input, size_t input_len,
 		      unsigned int max_addresses, bool fill_missing)
 {
 	string_t *str;
@@ -926,7 +926,7 @@ message_address_parse(const char *input,
 
 	str = str_new(128);
 
-	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, strlen(input), str);
+	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, input_len, str);
 
 	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
@@ -1064,7 +1064,7 @@ void compose_address(char **output, const char *mailbox, const char *domain)
 	str_free(&str);
 }
 
-void split_address(const char *input, char **mailbox, char **domain)
+void split_address(const char *input, size_t input_len, char **mailbox, char **domain)
 {
 	struct message_address_parser_context ctx;
 
@@ -1076,7 +1076,7 @@ void split_address(const char *input, char **mailbox, char **domain)
 
 	memset(&ctx, 0, sizeof(ctx));
 
-	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, strlen(input), NULL);
+	rfc822_parser_init(&ctx.parser, (const unsigned char *)input, input_len, NULL);
 
 	ctx.str = str_new(128);
 	ctx.fill_missing = false;
