@@ -7,7 +7,9 @@
 #########################
 
 use strict;
-use warnings FATAL => 'all';
+use warnings;
+
+local $SIG{__WARN__} = sub { fail('following test does not throw warning'); warn $_[0]; };
 
 # perl version which needs "use utf8;" for comparing utf8 and latin1 strings
 BEGIN {

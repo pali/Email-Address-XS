@@ -4,7 +4,9 @@
 #########################
 
 use strict;
-use warnings FATAL => 'all';
+use warnings;
+
+local $SIG{__WARN__} = sub { fail('following test does not throw warning'); warn $_[0]; };
 
 use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
