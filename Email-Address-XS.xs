@@ -22,12 +22,27 @@
 #define UTF8_IS_INVARIANT(c) (((U8)c) < 0x80)
 #endif
 
+/* Perl pre 5.10.1 support */
+#ifndef newSVpvn_utf8
+static SV *newSVpvn_utf8(pTHX_ const char *str, STRLEN len, U32 utf8) {
+	SV *sv = newSVpvn(str, len);
+	if (utf8) SvUTF8_on(sv);
+	return sv;
+}
+#define newSVpvn_utf8(str, len, utf8) newSVpvn_utf8(aTHX_ str, len, utf8)
+#endif
+
 /* Perl pre 5.13.1 support */
 #ifndef warn_sv
 #define warn_sv(scalar) warn("%s", SvPV_nolen(scalar))
 #endif
 #ifndef croak_sv
 #define croak_sv(scalar) croak("%s", SvPV_nolen(scalar))
+#endif
+
+/* Perl pre 5.15.4 support */
+#ifndef sv_derived_from_pvn
+#define sv_derived_from_pvn(scalar, name, len, flags) sv_derived_from(scalar, name)
 #endif
 
 /* Exported i_panic function for other C files */
@@ -263,12 +278,52 @@ static HV *get_perl_class_from_perl_scalar_or_cv(pTHX_ SV *scalar, CV *cv)
 		return get_perl_class_from_perl_cv(aTHX_ cv);
 }
 
-static bool is_class_object(pTHX_ const char *class, SV *object)
+static bool is_class_object(pTHX_ SV *class, SV *object)
 {
-	return sv_isobject(object) && sv_derived_from(object, class);
+	dSP;
+	SV *mortal_object;
+	SV *mortal_class;
+	SV *sv;
+	bool ret;
+	int count;
+
+	if (!sv_isobject(object))
+		return false;
+
+	ENTER;
+	SAVETMPS;
+
+	PUSHMARK(SP);
+
+	mortal_object = sv_newmortal();
+	SvSetSV_nosteal(mortal_object, object);
+	XPUSHs(mortal_object);
+
+	mortal_class = sv_newmortal();
+	SvSetSV_nosteal(mortal_class, class);
+	XPUSHs(mortal_class);
+
+	PUTBACK;
+
+	count = call_method("isa", G_SCALAR);
+
+	SPAGAIN;
+
+	if (count > 0) {
+		sv = POPs;
+		ret = SvTRUE(sv);
+	} else {
+		ret = false;
+	}
+
+	PUTBACK;
+	FREETMPS;
+	LEAVE;
+
+	return ret;
 }
 
-static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 index2, const char *class, bool warn)
+static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 index2, SV *class, bool warn)
 {
 	SV *scalar;
 	SV *object;
@@ -288,13 +343,7 @@ static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 inde
 	object = *object_ptr;
 	if (!is_class_object(aTHX_ class, object)) {
 		if (warn)
-			carp(CARP_WARN, "Element at index %d/%d is not %s object", (int)index1, (int)index2, class);
-		return NULL;
-	}
-
-	if (!SvROK(object)) {
-		if (warn)
-			carp(CARP_WARN, "Element at index %d/%d is not reference", (int)index1, (int)index2);
+			carp(CARP_WARN, "Element at index %d/%d is not %s object", (int)index1, (int)index2, SvPV_nolen(class));
 		return NULL;
 	}
 
@@ -309,7 +358,7 @@ static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 inde
 
 }
 
-static void message_address_add_from_perl_array(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, AV *array, I32 index1, I32 index2, const char *class)
+static void message_address_add_from_perl_array(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, AV *array, I32 index1, I32 index2, SV *class)
 {
 	HV *hash;
 	const char *name;
@@ -391,7 +440,7 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name, bool w
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
+static void message_address_add_from_perl_group(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, SV *scalar_group, SV *scalar_list, I32 index1, SV *class)
 {
 	I32 len;
 	I32 index2;
@@ -420,7 +469,7 @@ static void message_address_add_from_perl_group(pTHX_ struct message_address **f
 }
 
 #ifndef WITHOUT_SvPV_nomg
-static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 index1, const char *class)
+static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 index1, SV *class)
 {
 	I32 len;
 	I32 index2;
@@ -545,7 +594,7 @@ PREINIT:
 	struct message_address *first_address;
 	struct message_address *last_address;
 INPUT:
-	const char *this_class_name = "$Package";
+	SV *this_class = sv_2mortal(newSVpvn_utf8("$Package", sizeof("$Package")-1, 1));
 INIT:
 	if (items % 2 == 1) {
 		carp(CARP_WARN, "Odd number of elements in argument list");
@@ -558,13 +607,13 @@ CODE:
 #ifndef WITHOUT_SvPV_nomg
 	utf8 = false;
 	for (i = 0; i < items; i += 2)
-		if (perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), i, this_class_name))
+		if (perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), i, this_class))
 			utf8 = true;
 #else
 	utf8 = true;
 #endif
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, &taint, ST(i), ST(i+1), i, this_class_name);
+		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, &taint, ST(i), ST(i+1), i, this_class);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
 	RETVAL = newSVpv(string, 0);
@@ -594,14 +643,15 @@ PREINIT:
 	struct message_address *first_address;
 INPUT:
 	const char *this_class_name = "$Package";
+	STRLEN this_class_len = sizeof("$Package")-1;
 INIT:
 	string_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
 	class_scalar = items >= 2 ? ST(1) : NULL;
 	input = get_perl_scalar_string_value(aTHX_ string_scalar, &input_len, "string", false);
 	utf8 = SvUTF8(string_scalar);
 	taint = SvTAINTED(string_scalar);
-	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ class_scalar ? class_scalar : NULL, cv);
-	if (class_scalar && !sv_derived_from(class_scalar, this_class_name)) {
+	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ class_scalar, cv);
+	if (class_scalar && !sv_derived_from_pvn(class_scalar, this_class_name, this_class_len, SVf_UTF8)) {
 		class_name = HvNAME(hv_class);
 		carp(CARP_WARN, "Class %s is not derived from %s", (class_name ? class_name : "(unknown)"), this_class_name);
 		XSRETURN_EMPTY;
@@ -691,9 +741,7 @@ is_obj(...)
 PREINIT:
 	SV *class = items >= 1 ? ST(0) : &PL_sv_undef;
 	SV *object = items >= 2 ? ST(1) : &PL_sv_undef;
-	STRLEN class_len;
-	const char *class_string = get_perl_scalar_string_value(aTHX_ class, &class_len, "class", false);
 CODE:
-	RETVAL = is_class_object(aTHX_ class_string, object);
+	RETVAL = is_class_object(aTHX_ class, object);
 OUTPUT:
 	RETVAL
