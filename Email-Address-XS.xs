@@ -107,10 +107,22 @@ static const char *get_perl_scalar_value(pTHX_ SV *scalar, bool utf8, bool nomg)
 
 	string = SvPV_nomg(scalar, len);
 #else
+	COP cop;
+
 	if (!SvGMAGICAL(scalar) && !SvOK(scalar))
 		return NULL;
 
+	/* Temporary turn off all warnings because SvPV can throw uninitialized warning */
+	cop = *PL_curcop;
+	cop.cop_warnings = pWARN_NONE;
+
+	ENTER;
+	SAVEVPTR(PL_curcop);
+	PL_curcop = &cop;
+
 	string = SvPV(scalar, len);
+
+	LEAVE;
 
 	if (SvGMAGICAL(scalar) && !SvOK(scalar))
 		return NULL;

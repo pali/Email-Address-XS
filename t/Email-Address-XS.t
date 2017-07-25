@@ -910,6 +910,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	tie my $str2, 'TieScalarCounter', 'str2';
 	tie my $str3, 'TieScalarCounter', 'str3';
 	tie my $str4, 'TieScalarCounter', 'str4';
+	tie my $str5, 'TieScalarCounter', undef;
 	my $list1 = [ Email::Address::XS->new(), Email::Address::XS->new() ];
 	my $list2 = [ Email::Address::XS->new(), Email::Address::XS->new() ];
 	my $list3 = [ Email::Address::XS->new() ];
@@ -953,6 +954,11 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		"str4: L\x{e1}tin1 <L\x{e1}tin1\@L\x{e1}tin1> (L\x{e1}tin1);",
 		'test function format_email_groups() with magic scalars in Latin1',
 	);
+	is(
+		format_email_groups($str5 => []),
+		'',
+		'test function format_email_groups() with magic scalar which is undef',
+	);
 	is(tied($str1)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
 	is(tied($str2)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
 	is(tied($str3)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
@@ -961,6 +967,8 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is(tied($str2)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	is(tied($str3)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	is(tied($str4)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
+	is(tied($str5)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
+	is(tied($str5)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	foreach ( @{$list1}, @{$list2}, @{$list3}, @{$list4} ) {
 		is(tied($_->{user})->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
 		is(tied($_->{host})->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
@@ -970,17 +978,6 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is(tied($_->{host})->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 		is(tied($_->{phrase})->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 		is(tied($_->{comment})->{store}, 0, 'test function format_email_groups() that did not call SET magic');
-	}
-	{
-		BEGIN { 'warnings'->unimport('uninitialized') if $] < 5.007002 }; # perl version without SvPV_nomg() support when tied undefined scalar generates warning
-		tie my $str5, 'TieScalarCounter', undef;
-		is(
-			format_email_groups($str5 => []),
-			'',
-			'test function format_email_groups() with magic scalar which is undef',
-		);
-		is(tied($str5)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-		is(tied($str5)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	}
 }
 
