@@ -34,7 +34,10 @@ matrix:
           branch_pattern: master
 
 before_install:
-  - if [ -z "$PERLBREW_PERL" ]; then eval $(curl https://travis-perl.github.io/init) --perl; function cpanm { :; }; fi
+  - if [ -z "$PERLBREW_PERL" ]; then eval $(curl https://travis-perl.github.io/init) --perl; fi
+
+install:
+  - true
 
 script:
   - if [ -n "$COVERITY_SCAN_TOKEN" ]; then exit 0; fi
