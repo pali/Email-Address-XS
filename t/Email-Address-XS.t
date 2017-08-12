@@ -21,7 +21,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 358;
+use Test::More tests => 367;
 
 sub with_warning(&) {
 	my ($code) = @_;
@@ -1074,6 +1074,37 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test function parse_email_groups() on string with nested comments and quoted characters',
 	);
 
+}
+
+#########################
+
+{
+	my $undef = undef;
+	is_deeply(
+		[ parse_email_groups("string1\x00string2") ],
+		[ undef, [ Email::Address::XS->new(user => 'string1') ] ],
+		'test function parse_email_groups() on string with nul character',
+	);
+	is(
+		with_warning { format_email_groups($undef => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]) },
+		'string1 <user@host>',
+		'test function format_email_groups() with nul character in phrase',
+	);
+	is(
+		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => "string1\x00string2", host => 'host') ]) },
+		'string1@host',
+		'test function format_email_groups() with nul character in user part of address',
+	);
+	is(
+		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]) },
+		'user@string1',
+		'test function format_email_groups() with nul character in host part of address',
+	);
+	is(
+		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]) },
+		'user@host (string1)',
+		'test function format_email_groups() with nul character in comment',
+	);
 }
 
 #########################
