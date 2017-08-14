@@ -633,6 +633,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
 			if (ctx->fill_missing)
 				ctx->addr.route = strdup("INVALID_ROUTE");
+			ctx->addr.invalid_syntax = true;
 			if (ctx->parser.data == ctx->parser.end)
 				return -1;
 			/* try to continue anyway */
