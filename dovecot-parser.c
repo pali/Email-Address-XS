@@ -1127,6 +1127,10 @@ void split_address(const char *input, size_t input_len, char **mailbox, char **d
 	*mailbox = ctx.addr.mailbox;
 	*domain = ctx.addr.domain;
 
+	free(ctx.addr.comment);
+	free(ctx.addr.route);
+	free(ctx.addr.name);
+
 	str_free(&ctx.str);
 }
 
