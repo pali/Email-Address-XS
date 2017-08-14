@@ -1109,6 +1109,7 @@ void compose_address(char **output, const char *mailbox, const char *domain)
 void split_address(const char *input, size_t input_len, char **mailbox, char **domain)
 {
 	struct message_address_parser_context ctx;
+	int ret;
 
 	if (!input || !input[0]) {
 		*mailbox = NULL;
@@ -1123,10 +1124,22 @@ void split_address(const char *input, size_t input_len, char **mailbox, char **d
 	ctx.str = str_new(128);
 	ctx.fill_missing = false;
 
-	(void)parse_addr_spec(&ctx);
+	ret = rfc822_skip_lwsp(&ctx.parser);
 
-	*mailbox = ctx.addr.mailbox;
-	*domain = ctx.addr.domain;
+	if (ret > 0)
+		ret = parse_addr_spec(&ctx);
+	else
+		ret = -1;
+
+	if (ret < 0 || ctx.parser.data != ctx.parser.end || ctx.addr.invalid_syntax) {
+		free(ctx.addr.mailbox);
+		free(ctx.addr.domain);
+		*mailbox = NULL;
+		*domain = NULL;
+	} else {
+		*mailbox = ctx.addr.mailbox;
+		*domain = ctx.addr.domain;
+	}
 
 	free(ctx.addr.comment);
 	free(ctx.addr.route);
