@@ -380,13 +380,13 @@ static void message_address_add_from_perl_array(pTHX_ struct message_address **f
 	comment = get_perl_hash_value(aTHX_ hash, "comment", &comment_len, utf8, taint);
 
 	if (name && string_contains_nul(name, name_len))
-		carp(CARP_WARN, "Element at index %d/%d contains nul character in address", (int)index1, (int)index2);
+		carp(CARP_WARN, "Element at index %d/%d contains nul character in phrase", (int)index1, (int)index2);
 
 	if (mailbox && string_contains_nul(mailbox, mailbox_len))
-		carp(CARP_WARN, "Element at index %d/%d contains nul character in mailbox", (int)index1, (int)index2);
+		carp(CARP_WARN, "Element at index %d/%d contains nul character in user portion of address", (int)index1, (int)index2);
 
 	if (domain && string_contains_nul(domain, domain_len))
-		carp(CARP_WARN, "Element at index %d/%d contains nul character in domain", (int)index1, (int)index2);
+		carp(CARP_WARN, "Element at index %d/%d contains nul character in host portion of address", (int)index1, (int)index2);
 
 	if (comment && string_contains_nul(comment, comment_len))
 		carp(CARP_WARN, "Element at index %d/%d contains nul character in comment", (int)index1, (int)index2);
@@ -687,9 +687,9 @@ INIT:
 	utf8 = (SvUTF8(mailbox_scalar) || SvUTF8(domain_scalar));
 	taint = (SvTAINTED(mailbox_scalar) || SvTAINTED(domain_scalar));
 	if (string_contains_nul(mailbox, mailbox_len))
-		carp(CARP_WARN, "Mailbox contains nul character");
+		carp(CARP_WARN, "Nul character in user portion of address");
 	if (string_contains_nul(domain, domain_len))
-		carp(CARP_WARN, "Domain contains nul character");
+		carp(CARP_WARN, "Nul character in host portion of address");
 CODE:
 	compose_address(&string, mailbox, domain);
 	RETVAL = newSVpv(string, 0);
