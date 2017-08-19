@@ -309,6 +309,29 @@ sub parse {
 	return $self;
 }
 
+=item parse_bare_address
+
+  my $winstons_address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue');
+
+Parses an input string as one bare email address (addr spec) which
+does not allow phrase part or angle brackets around email address and
+returns an Email::Address::XS object. It is just a wrapper around
+L<C<address>|/address> method. Method L<C<is_valid>|/is_valid> can be
+used to check if parsing was successful.
+
+=cut
+
+sub parse_bare_address {
+	my ($class, $string) = @_;
+	my $self = $class->new();
+	if ( defined $string ) {
+		$self->address($string);
+	} else {
+		carp 'Use of uninitialized value for string';
+	}
+	return $self;
+}
+
 =back
 
 =head2 Object Methods

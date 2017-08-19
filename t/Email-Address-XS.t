@@ -21,7 +21,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 392;
+use Test::More tests => 409;
 
 sub with_warning(&) {
 	my ($code) = @_;
@@ -575,6 +575,102 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is($address->phrase(), 'Winston Smith', 'test method parse() in scalar context with more addresses');
 		is($address->address(), 'winston.smith@recdep.minitrue', 'test method parse() in scalar context with more addresses');
 	}
+
+}
+
+#########################
+
+{
+
+	is(
+		with_warning { Email::Address::XS->parse_bare_address() },
+		Email::Address::XS->new(),
+		'test method parse_bare_address() without argument',
+	);
+
+	is(
+		with_warning { Email::Address::XS->parse_bare_address(undef) },
+		Email::Address::XS->new(),
+		'test method parse_bare_address() with undef argument',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address(''),
+		Email::Address::XS->new(),
+		'test method parse_bare_address() on empty string',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('invalid_line'),
+		Email::Address::XS->new(),
+		'test method parse_bare_address() on invalid not parsable address',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('<winston.smith@recdep.minitrue>'),
+		Email::Address::XS->new(),
+		'test method parse_bare_address() on invalid input string - address with angle brackets',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('Winston Smith <winston.smith@recdep.minitrue>'),
+		Email::Address::XS->new(),
+		'test method parse_bare_address() on invalid input string - phrase with address',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue, julia@ficdep.minitrue'),
+		Email::Address::XS->new(),
+		'test method parse_bare_address() on invalid input string - two addresses',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue(comment)'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with comment',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue (comment)'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with comment',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('(comment)winston.smith@recdep.minitrue'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with comment',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('(comment) winston.smith@recdep.minitrue'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with comment',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('(comment)winston.smith@recdep.minitrue(comment)'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with comment',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('(comment) winston.smith@recdep.minitrue (comment)'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with comment',
+	);
+
+	is(
+		Email::Address::XS->parse_bare_address('(comm(e)nt) (co(m)ment) winston (comment) . smith@recdep.minitrue (c(o)mment) (comment)'),
+		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
+		'test method parse_bare_address() on valid input string with lot of comments',
+	);
 
 }
 
