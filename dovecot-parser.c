@@ -711,7 +711,9 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	if (ctx->parser.last_comment != NULL)
 		str_truncate(ctx->parser.last_comment, 0);
 
+#if 0
 	bool quoted_string = *ctx->parser.data == '"';
+#endif
 	ret = parse_local_part(ctx);
 	if (ret <= 0) {
 		/* end of input or parsing local-part failed */
