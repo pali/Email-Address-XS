@@ -393,7 +393,8 @@ sub phrase {
   my $user = $address->user();
   $address->user('winston.smith');
 
-Accessor and mutator for the unescaped user part of an address.
+Accessor and mutator for the unescaped user (local/mailbox) part of
+an address.
 
 =cut
 
@@ -410,7 +411,7 @@ sub user {
   my $host = $address->host();
   $address->host('recdep.minitrue');
 
-Accessor and mutator for the unescaped host part of an address.
+Accessor and mutator for the unescaped host (domain) part of an address.
 
 =cut
 
@@ -427,7 +428,7 @@ sub host {
   my $string_address = $address->address();
   $address->address('winston.smith@recdep.minitrue');
 
-Accessor and mutator for the escaped address.
+Accessor and mutator for the escaped address (addr spec).
 
 Internally this module stores a user and a host part of an address
 separately. Function L<C<compose_address>|/compose_address> is used
