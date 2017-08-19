@@ -21,7 +21,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 367;
+use Test::More tests => 392;
 
 sub with_warning(&) {
 	my ($code) = @_;
@@ -68,6 +68,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() without arguments';
 		my $address = Email::Address::XS->new();
+		ok(!$address->is_valid(), $subtest);
 		is($address->phrase(), undef, $subtest);
 		is($address->user(), undef, $subtest);
 		is($address->host(), undef, $subtest);
@@ -80,6 +81,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with one argument';
 		my $address = Email::Address::XS->new('Addressless Outer Party Member');
+		ok(!$address->is_valid(), $subtest);
 		is($address->phrase(), 'Addressless Outer Party Member', $subtest);
 		is($address->user(), undef, $subtest);
 		is($address->host(), undef, $subtest);
@@ -92,6 +94,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with two arguments as array';
 		my $address = Email::Address::XS->new(undef, 'user@oceania');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), undef, $subtest);
 		is($address->user(), 'user', $subtest);
 		is($address->host(), 'oceania', $subtest);
@@ -104,6 +107,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with two arguments as hash';
 		my $address = Email::Address::XS->new(address => 'winston.smith@recdep.minitrue');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), undef, $subtest);
 		is($address->user(), 'winston.smith', $subtest);
 		is($address->host(), 'recdep.minitrue', $subtest);
@@ -116,6 +120,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with two arguments as array';
 		my $address = Email::Address::XS->new(Julia => 'julia@ficdep.minitrue');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), 'Julia', $subtest);
 		is($address->user(), 'julia', $subtest);
 		is($address->host(), 'ficdep.minitrue', $subtest);
@@ -128,6 +133,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with three arguments';
 		my $address = Email::Address::XS->new('Winston Smith', 'winston.smith@recdep.minitrue', 'Records Department');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), 'Winston Smith', $subtest);
 		is($address->user(), 'winston.smith', $subtest);
 		is($address->host(), 'recdep.minitrue', $subtest);
@@ -140,6 +146,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with four arguments user & host as hash';
 		my $address = Email::Address::XS->new(user => 'julia', host => 'ficdep.minitrue');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), undef, $subtest);
 		is($address->user(), 'julia', $subtest);
 		is($address->host(), 'ficdep.minitrue', $subtest);
@@ -152,6 +159,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with four arguments phrase & address as hash';
 		my $address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), 'Julia', $subtest);
 		is($address->user(), 'julia', $subtest);
 		is($address->host(), 'ficdep.minitrue', $subtest);
@@ -164,6 +172,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with four arguments as array';
 		my $address = with_warning { Email::Address::XS->new('Julia', 'julia@ficdep.minitrue', 'Fiction Department', 'deprecated_original_string') };
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), 'Julia', $subtest);
 		is($address->user(), 'julia', $subtest);
 		is($address->host(), 'ficdep.minitrue', $subtest);
@@ -176,6 +185,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with four arguments as hash (phrase is string "address")';
 		my $address = Email::Address::XS->new(phrase => 'address', address => 'user@oceania');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), 'address', $subtest);
 		is($address->user(), 'user', $subtest);
 		is($address->host(), 'oceania', $subtest);
@@ -189,6 +199,8 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		my $subtest = 'test method new() with copy argument';
 		my $address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
 		my $copy = Email::Address::XS->new(copy => $address);
+		ok($address->is_valid(), $subtest);
+		ok($copy->is_valid(), $subtest);
 		is($copy->phrase(), 'Julia', $subtest);
 		is($copy->user(), 'julia', $subtest);
 		is($copy->host(), 'ficdep.minitrue', $subtest);
@@ -215,6 +227,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with invalid email address';
 		my $address = Email::Address::XS->new(address => 'invalid_address');
+		ok(!$address->is_valid(), $subtest);
 		is($address->phrase(), undef, $subtest);
 		is($address->user(), undef, $subtest);
 		is($address->host(), undef, $subtest);
@@ -225,8 +238,17 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	}
 
 	{
+		my $subtest = 'test method new() with copy argument of invalid email address';
+		my $address = Email::Address::XS->new(address => 'invalid_address');
+		my $copy = Email::Address::XS->new(copy => $address);
+		ok(!$address->is_valid(), $subtest);
+		ok(!$copy->is_valid(), $subtest);
+	}
+
+	{
 		my $subtest = 'test method new() with empty strings for user and host and non empty for phrase';
 		my $address = Email::Address::XS->new(user => '', host => '', phrase => 'phrase');
+		ok(!$address->is_valid(), $subtest);
 		is($address->phrase(), 'phrase', $subtest);
 		is($address->user(), '', $subtest);
 		is($address->host(), '', $subtest);
@@ -239,6 +261,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	{
 		my $subtest = 'test method new() with all named arguments';
 		my $address = Email::Address::XS->new(phrase => 'Julia', user => 'julia', host => 'ficdep.minitrue', comment => 'Fiction Department');
+		ok($address->is_valid(), $subtest);
 		is($address->phrase(), 'Julia', $subtest);
 		is($address->user(), 'julia', $subtest);
 		is($address->host(), 'ficdep.minitrue', $subtest);
@@ -532,11 +555,26 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test method parse() on string with valid addresses',
 	);
 
-	is_deeply(
-		scalar Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania'),
-		Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'),
-		'test method parse() in scalar context',
-	);
+	{
+		my $address = Email::Address::XS->parse('');
+		ok(!$address->is_valid(), 'test method parse() in scalar context on empty string');
+		is($address->phrase(), undef, 'test method parse() in scalar context on empty string');
+		is($address->address(), undef, 'test method parse() in scalar context on empty string');
+	}
+
+	{
+		my $address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>');
+		ok($address->is_valid(), 'test method parse() in scalar context with one address');
+		is($address->phrase(), 'Winston Smith', 'test method parse() in scalar context with one address');
+		is($address->address(), 'winston.smith@recdep.minitrue', 'test method parse() in scalar context with one address');
+	}
+
+	{
+		my $address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania');
+		ok(!$address->is_valid(), 'test method parse() in scalar context with more addresses');
+		is($address->phrase(), 'Winston Smith', 'test method parse() in scalar context with more addresses');
+		is($address->address(), 'winston.smith@recdep.minitrue', 'test method parse() in scalar context with more addresses');
+	}
 
 }
 

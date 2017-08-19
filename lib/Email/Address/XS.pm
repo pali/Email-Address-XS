@@ -253,12 +253,14 @@ sub new {
 		$args{phrase} = $args[0] if scalar @args > 0;
 	}
 
+	my $invalid;
 	if ( exists $args{copy} ) {
 		if ( $class->is_obj($args{copy}) ) {
 			$args{phrase} = $args{copy}->phrase();
 			$args{comment} = $args{copy}->comment();
 			$args{user} = $args{copy}->user();
 			$args{host} = $args{copy}->host();
+			$invalid = $args{copy}->{invalid};
 			delete $args{address};
 		} else {
 			carp 'Named argument copy does not contain a valid object';
@@ -277,6 +279,8 @@ sub new {
 		$self->host($args{host});
 	}
 
+	$self->{invalid} = 1 if $invalid;
+
 	return $self;
 }
 
@@ -290,13 +294,19 @@ objects. Same as the function L<C<parse_email_addresses>|/parse_email_addresses>
 but this one is class method.
 
 In scalar context this function returns just first parsed object.
+If more then one object was parsed then L<C<is_valid>|/is_valid>
+method on returned object returns false. If no object was parsed
+then empty Email::Address::XS object is returned.
 
 =cut
 
 sub parse {
 	my ($class, $string) = @_;
 	my @addresses = parse_email_addresses($string, $class);
-	return wantarray ? @addresses : $addresses[0];
+	return @addresses if wantarray;
+	my $self = @addresses ? $addresses[0] : Email::Address::XS->new();
+	$self->{invalid} = 1 if scalar @addresses != 1;
+	return $self;
 }
 
 =back
@@ -318,6 +328,27 @@ sub format {
 	return format_email_addresses($self);
 }
 
+=item is_valid
+
+  my $is_valid = $address->is_valid();
+
+Returns true if the parse function or method which created this
+Email::Address::XS object had not received any syntax error on input
+string and also that L<C<user>|/user> and L<C<host>|/host> part of
+the email address are not empty strings.
+
+Thus this function can be used for checking if Email::Address::XS
+object is valid before calling L<C<format>|/format> method on it.
+
+=cut
+
+sub is_valid {
+	my ($self) = @_;
+	my $user = $self->user();
+	my $host = $self->host();
+	return (defined $user and length $user and defined $host and length $host and not $self->{invalid});
+}
+
 =item phrase
 
   my $phrase = $address->phrase();
@@ -330,6 +361,7 @@ Accessor and mutator for the phrase (display name).
 sub phrase {
 	my ($self, @args) = @_;
 	return $self->{phrase} unless @args;
+	delete $self->{invalid} if exists $self->{invalid};
 	return $self->{phrase} = $args[0];
 }
 
@@ -346,6 +378,7 @@ sub user {
 	my ($self, @args) = @_;
 	return $self->{user} unless @args;
 	delete $self->{cached_address} if exists $self->{cached_address};
+	delete $self->{invalid} if exists $self->{invalid};
 	return $self->{user} = $args[0];
 }
 
@@ -362,6 +395,7 @@ sub host {
 	my ($self, @args) = @_;
 	return $self->{host} unless @args;
 	delete $self->{cached_address} if exists $self->{cached_address};
+	delete $self->{invalid} if exists $self->{invalid};
 	return $self->{host} = $args[0];
 }
 
@@ -386,6 +420,7 @@ sub address {
 	my $user;
 	my $host;
 	if ( @args ) {
+		delete $self->{invalid} if exists $self->{invalid};
 		($user, $host) = split_address($args[0]) if defined $args[0];
 		if ( not defined $user or not defined $host ) {
 			$user = undef;
@@ -420,6 +455,7 @@ balanced. If not undef is set and returned.
 sub comment {
 	my ($self, @args) = @_;
 	return $self->{comment} unless @args;
+	delete $self->{invalid} if exists $self->{invalid};
 	return $self->{comment} = undef unless defined $args[0];
 	my $count = 0;
 	my $cleaned = $args[0];
