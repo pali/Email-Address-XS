@@ -13,6 +13,7 @@ $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
 use Test::More tests => 129;
+use Test::Builder;
 
 #########################
 
@@ -23,12 +24,14 @@ sub is_tainted {
 
 sub test_tainted {
 	my ($got, $expected, $subtest) = @_;
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	ok(is_tainted($got), $subtest);
 	is($got, $expected, $subtest);
 }
 
 sub test_not_tainted {
 	my ($got, $expected, $subtest) = @_;
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	ok(!is_tainted($got), $subtest);
 	is($got, $expected, $subtest);
 }
