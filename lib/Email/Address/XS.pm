@@ -36,25 +36,36 @@ Email::Address::XS - Parse and format RFC 2822 email addresses and groups
   print $users_address->host();
   # oceania
 
+  my $goldsteins_address = Email::Address::XS->parse_bare_address('goldstein@brotherhood.oceania');
+  print $goldsteins_address->user();
+  # goldstein
+
+  my @addresses = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue> (Records Department), Julia <julia@ficdep.minitrue>');
+  # ($winstons_address, $julias_address)
+
 
   use Email::Address::XS qw(format_email_addresses format_email_groups parse_email_addresses parse_email_groups);
-  my $undef = undef;
 
   my $addresses_string = format_email_addresses($winstons_address, $julias_address, $users_address);
-  print $addresses_string;
   # "Winston Smith" <winston.smith@recdep.minitrue> (Records Department), Julia <julia@ficdep.minitrue>, user <user@oceania>
 
-  my @addresses = parse_email_addresses($addresses_string);
-  print 'address: ' . $_->address() . "\n" foreach @addresses;
-  # address: winston.smith@recdep.minitrue
-  # address: julia@ficdep.minitrue
-  # address: user@oceania
+  my @addresses = map { $_->address() } parse_email_addresses($addresses_string);
+  # ('winston.smith@recdep.minitrue', 'julia@ficdep.minitrue', 'user@oceania')
 
-  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $users_address ]);
-  print $groups_string;
+  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], undef() => [ $users_address ]);
   # Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue> (Records Department), Julia <julia@ficdep.minitrue>;, user <user@oceania>
 
   my @groups = parse_email_groups($groups_string);
+  # ('Brotherhood' => [ $winstons_address, $julias_address ], undef() => [ $users_address ])
+
+
+  use Email::Address::XS qw(compose_address split_address);
+
+  my ($user, $host) = split_address('julia(outer party)@ficdep.minitrue');
+  # ('julia', 'ficdep.minitrue')
+
+  my $string = compose_address('charrington"@"shop', 'thought.police.oceania');
+  # "charrington\"@\"shop"@thought.police.oceania
 
 =head1 DESCRIPTION
 
@@ -86,6 +97,10 @@ parses input string sequentially according to RFC 2822 grammar.
 
 Additionally it has support also for named groups and so can be use
 instead of L<the Email::Address::List module|Email::Address::List>.
+
+If you are looking for the module which provides object representation
+for the list of email addresses suitable for the MIME email headers,
+see L<Email::MIME::Header::AddressList|Email::MIME::Header::AddressList>.
 
 =head2 EXPORT
 
@@ -604,6 +619,7 @@ sub enable_cache {
 
 L<RFC 822|https://tools.ietf.org/html/rfc822>,
 L<RFC 2822|https://tools.ietf.org/html/rfc2822>,
+L<Email::MIME::Header::AddressList>,
 L<Email::Address>,
 L<Email::Address::List>,
 L<Email::AddressParser>
