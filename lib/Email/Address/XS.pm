@@ -554,20 +554,23 @@ sub original {
   print "Winston's address is $address.";
   # Winston's address is "Winston Smith" <winston.smith@recdep.minitrue>.
 
-Objects stringify to L<C<format>|/format>.
+Objects stringify to L<C<format>|/format>. For stringification purpose
+is defined method C<as_string>.
 
 =cut
 
 our $STRINGIFY; # deprecated
 
-use overload '""' => sub {
+sub as_string {
 	my ($self) = @_;
 	return $self->format() unless defined $STRINGIFY;
 	carp 'Variable $Email::Address::XS::STRINGIFY is deprecated; subclass instead';
 	my $method = $self->can($STRINGIFY);
 	croak 'Stringify method ' . $STRINGIFY . ' does not exist' unless defined $method;
 	return $method->($self);
-};
+}
+
+use overload '""' => \&as_string;
 
 =back
 
