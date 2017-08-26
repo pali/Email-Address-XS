@@ -592,9 +592,9 @@ static bool get_next_perl_address_group(pTHX_ struct message_address **address, 
 	in_group = !(*address)->domain;
 
 	if (in_group && (*address)->mailbox)
-		*group_scalar = newSVpv((*address)->mailbox, 0);
+		*group_scalar = sv_2mortal(newSVpv((*address)->mailbox, 0));
 	else
-		*group_scalar = newSV(0);
+		*group_scalar = sv_newmortal();
 
 	if (utf8 && in_group && (*address)->mailbox)
 		sv_utf8_decode(*group_scalar);
@@ -603,7 +603,7 @@ static bool get_next_perl_address_group(pTHX_ struct message_address **address, 
 		SvTAINTED_on(*group_scalar);
 
 	addresses_array = newAV();
-	*addresses_scalar = newRV_noinc((SV *)addresses_array);
+	*addresses_scalar = sv_2mortal(newRV_noinc((SV *)addresses_array));
 
 	if (in_group)
 		*address = (*address)->next;
@@ -639,7 +639,7 @@ MODULE = Email::Address::XS		PACKAGE = Email::Address::XS
 
 PROTOTYPES: DISABLE
 
-SV *
+void
 format_email_groups(...)
 PREINIT:
 	I32 i;
@@ -648,6 +648,7 @@ PREINIT:
 	char *string;
 	struct message_address *first_address;
 	struct message_address *last_address;
+	SV *string_scalar;
 INPUT:
 	SV *this_class = sv_2mortal(newSVpvn_utf8("$Package", sizeof("$Package")-1, 1));
 INIT:
@@ -655,7 +656,7 @@ INIT:
 		carp(CARP_WARN, "Odd number of elements in argument list");
 		XSRETURN_UNDEF;
 	}
-CODE:
+PPCODE:
 	first_address = NULL;
 	last_address = NULL;
 	taint = false;
@@ -671,14 +672,14 @@ CODE:
 		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, &taint, ST(i), ST(i+1), (items == 2 ? -1 : i), this_class);
 	message_address_write(&string, first_address);
 	message_address_free(&first_address);
-	RETVAL = newSVpv(string, 0);
-	if (utf8)
-		sv_utf8_decode(RETVAL);
-	if (taint)
-		SvTAINTED_on(RETVAL);
+	string_scalar = sv_2mortal(newSVpv(string, 0));
 	string_free(string);
-OUTPUT:
-	RETVAL
+	if (utf8)
+		sv_utf8_decode(string_scalar);
+	if (taint)
+		SvTAINTED_on(string_scalar);
+	EXTEND(SP, 1);
+	PUSHs(string_scalar);
 
 void
 parse_email_groups(...)
@@ -717,12 +718,12 @@ PPCODE:
 	EXTEND(SP, count * 2);
 	address = first_address;
 	while (get_next_perl_address_group(aTHX_ &address, &group_scalar, &addresses_scalar, hv_class, utf8, taint)) {
-		PUSHs(sv_2mortal(group_scalar));
-		PUSHs(sv_2mortal(addresses_scalar));
+		PUSHs(group_scalar);
+		PUSHs(addresses_scalar);
 	}
 	message_address_free(&first_address);
 
-SV *
+void
 compose_address(...)
 PREINIT:
 	char *string;
@@ -734,6 +735,7 @@ PREINIT:
 	bool taint;
 	SV *mailbox_scalar;
 	SV *domain_scalar;
+	SV *string_scalar;
 INIT:
 	mailbox_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
 	domain_scalar = items >= 2 ? ST(1) : &PL_sv_undef;
@@ -745,16 +747,16 @@ INIT:
 		carp(CARP_WARN, "Nul character in user portion of address");
 	if (string_contains_nul(domain, domain_len))
 		carp(CARP_WARN, "Nul character in host portion of address");
-CODE:
+PPCODE:
 	compose_address(&string, mailbox, domain);
-	RETVAL = newSVpv(string, 0);
-	if (utf8)
-		sv_utf8_decode(RETVAL);
-	if (taint)
-		SvTAINTED_on(RETVAL);
+	string_scalar = sv_2mortal(newSVpv(string, 0));
 	string_free(string);
-OUTPUT:
-	RETVAL
+	if (utf8)
+		sv_utf8_decode(string_scalar);
+	if (taint)
+		SvTAINTED_on(string_scalar);
+	EXTEND(SP, 1);
+	PUSHs(string_scalar);
 
 void
 split_address(...)
@@ -775,8 +777,8 @@ INIT:
 	taint = SvTAINTED(string_scalar);
 PPCODE:
 	split_address(string, string_len, &mailbox, &domain);
-	mailbox_scalar = mailbox ? newSVpv(mailbox, 0) : newSV(0);
-	domain_scalar = domain ? newSVpv(domain, 0) : newSV(0);
+	mailbox_scalar = mailbox ? sv_2mortal(newSVpv(mailbox, 0)) : sv_newmortal();
+	domain_scalar = domain ? sv_2mortal(newSVpv(domain, 0)) : sv_newmortal();
 	string_free(mailbox);
 	string_free(domain);
 	if (utf8) {
@@ -788,8 +790,8 @@ PPCODE:
 		SvTAINTED_on(domain_scalar);
 	}
 	EXTEND(SP, 2);
-	PUSHs(sv_2mortal(mailbox_scalar));
-	PUSHs(sv_2mortal(domain_scalar));
+	PUSHs(mailbox_scalar);
+	PUSHs(domain_scalar);
 
 bool
 is_obj(...)
