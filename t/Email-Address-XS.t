@@ -21,7 +21,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 409;
+use Test::More tests => 453;
 
 sub with_warning(&) {
 	my ($code) = @_;
@@ -543,37 +543,65 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test method parse() on empty string',
 	);
 
-	is_deeply(
-		[ Email::Address::XS->parse('invalid_line') ],
-		[ Email::Address::XS->new(phrase => 'invalid_line') ],
-		'test method parse() on invalid not parsable line',
-	);
-
-	is_deeply(
-		[ Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania') ],
-		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'), Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'), Email::Address::XS->new(address => 'user@oceania') ],
-		'test method parse() on string with valid addresses',
-	);
+	{
+		my $subtest = 'test method parse() on invalid not parsable line';
+		my @addresses = Email::Address::XS->parse('invalid_line');
+		is_deeply(
+			\@addresses,
+			[ Email::Address::XS->new(phrase => 'invalid_line') ],
+			$subtest,
+		) and do {
+			ok(!$addresses[0]->is_valid(), $subtest);
+			is($addresses[0]->original(), 'invalid_line', $subtest);
+		};
+	}
 
 	{
+		my $subtest = 'test method parse() on string with valid addresses';
+		my @addresses = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania');
+		is_deeply(
+			\@addresses,
+			[
+				Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue'),
+				Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue'),
+				Email::Address::XS->new(address => 'user@oceania')
+			],
+			$subtest,
+		) and do {
+			ok($addresses[0]->is_valid(), $subtest);
+			ok($addresses[1]->is_valid(), $subtest);
+			ok($addresses[2]->is_valid(), $subtest);
+			is($addresses[0]->original(), '"Winston Smith" <winston.smith@recdep.minitrue>', $subtest);
+			is($addresses[1]->original(), 'Julia <julia@ficdep.minitrue>', $subtest);
+			is($addresses[2]->original(), 'user@oceania', $subtest);
+		};
+	}
+
+	{
+		my $subtest = 'test method parse() in scalar context on empty string';
 		my $address = Email::Address::XS->parse('');
-		ok(!$address->is_valid(), 'test method parse() in scalar context on empty string');
-		is($address->phrase(), undef, 'test method parse() in scalar context on empty string');
-		is($address->address(), undef, 'test method parse() in scalar context on empty string');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), '', $subtest);
+		is($address->phrase(), undef, $subtest);
+		is($address->address(), undef, $subtest);
 	}
 
 	{
+		my $subtest = 'test method parse() in scalar context with one address';
 		my $address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>');
-		ok($address->is_valid(), 'test method parse() in scalar context with one address');
-		is($address->phrase(), 'Winston Smith', 'test method parse() in scalar context with one address');
-		is($address->address(), 'winston.smith@recdep.minitrue', 'test method parse() in scalar context with one address');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), '"Winston Smith" <winston.smith@recdep.minitrue>', $subtest);
+		is($address->phrase(), 'Winston Smith', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
 	}
 
 	{
+		my $subtest = 'test method parse() in scalar context with more addresses';
 		my $address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, user@oceania');
-		ok(!$address->is_valid(), 'test method parse() in scalar context with more addresses');
-		is($address->phrase(), 'Winston Smith', 'test method parse() in scalar context with more addresses');
-		is($address->address(), 'winston.smith@recdep.minitrue', 'test method parse() in scalar context with more addresses');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), '"Winston Smith" <winston.smith@recdep.minitrue>', $subtest);
+		is($address->phrase(), 'Winston Smith', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
 	}
 
 }
@@ -582,95 +610,133 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 {
 
-	is(
-		with_warning { Email::Address::XS->parse_bare_address() },
-		Email::Address::XS->new(),
-		'test method parse_bare_address() without argument',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() without argument';
+		my $address = with_warning { Email::Address::XS->parse_bare_address() };
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), undef, $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		with_warning { Email::Address::XS->parse_bare_address(undef) },
-		Email::Address::XS->new(),
-		'test method parse_bare_address() with undef argument',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() with undef argument';
+		my $address = with_warning { Email::Address::XS->parse_bare_address(undef) };
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), undef, $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address(''),
-		Email::Address::XS->new(),
-		'test method parse_bare_address() on empty string',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on empty string';
+		my $address = Email::Address::XS->parse_bare_address('');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), '', $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('invalid_line'),
-		Email::Address::XS->new(),
-		'test method parse_bare_address() on invalid not parsable address',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on invalid not parsable address';
+		my $address = Email::Address::XS->parse_bare_address('invalid_line');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), 'invalid_line', $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('<winston.smith@recdep.minitrue>'),
-		Email::Address::XS->new(),
-		'test method parse_bare_address() on invalid input string - address with angle brackets',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on invalid input string - address with angle brackets';
+		my $address = Email::Address::XS->parse_bare_address('<winston.smith@recdep.minitrue>');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), '<winston.smith@recdep.minitrue>', $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('Winston Smith <winston.smith@recdep.minitrue>'),
-		Email::Address::XS->new(),
-		'test method parse_bare_address() on invalid input string - phrase with address',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on invalid input string - phrase with address';
+		my $address = Email::Address::XS->parse_bare_address('Winston Smith <winston.smith@recdep.minitrue>');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), 'Winston Smith <winston.smith@recdep.minitrue>', $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue, julia@ficdep.minitrue'),
-		Email::Address::XS->new(),
-		'test method parse_bare_address() on invalid input string - two addresses',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on invalid input string - two addresses';
+		my $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue, julia@ficdep.minitrue');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), 'winston.smith@recdep.minitrue, julia@ficdep.minitrue', $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on invalid input string - two addresses';
+		my $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue, julia@ficdep.minitrue');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), 'winston.smith@recdep.minitrue, julia@ficdep.minitrue', $subtest);
+		is($address->address(), undef, $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue(comment)'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with comment',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string';
+		my $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), 'winston.smith@recdep.minitrue', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue (comment)'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with comment',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with comment';
+		my $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue(comment)');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), 'winston.smith@recdep.minitrue(comment)', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('(comment)winston.smith@recdep.minitrue'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with comment',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with comment';
+		my $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue (comment)');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), 'winston.smith@recdep.minitrue (comment)', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('(comment) winston.smith@recdep.minitrue'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with comment',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with comment';
+		my $address = Email::Address::XS->parse_bare_address('(comment)winston.smith@recdep.minitrue');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), '(comment)winston.smith@recdep.minitrue', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('(comment)winston.smith@recdep.minitrue(comment)'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with comment',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with comment';
+		my $address = Email::Address::XS->parse_bare_address('(comment) winston.smith@recdep.minitrue');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), '(comment) winston.smith@recdep.minitrue', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('(comment) winston.smith@recdep.minitrue (comment)'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with comment',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with two comments';
+		my $address = Email::Address::XS->parse_bare_address('(comment)winston.smith@recdep.minitrue(comment)');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), '(comment)winston.smith@recdep.minitrue(comment)', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
-	is(
-		Email::Address::XS->parse_bare_address('(comm(e)nt) (co(m)ment) winston (comment) . smith@recdep.minitrue (c(o)mment) (comment)'),
-		Email::Address::XS->new(address => 'winston.smith@recdep.minitrue'),
-		'test method parse_bare_address() on valid input string with lot of comments',
-	);
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with two comments';
+		my $address = Email::Address::XS->parse_bare_address('(comment) winston.smith@recdep.minitrue (comment)');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), '(comment) winston.smith@recdep.minitrue (comment)', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
+
+	{
+		my $subtest = 'test method parse_bare_address() on valid input string with lot of comments';
+		my $address = Email::Address::XS->parse_bare_address('(comm(e)nt) (co(m)ment) winston (comment) . smith@recdep.minitrue (c(o)mment) (comment)');
+		ok($address->is_valid(), $subtest);
+		is($address->original(), '(comm(e)nt) (co(m)ment) winston (comment) . smith@recdep.minitrue (c(o)mment) (comment)', $subtest);
+		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
 
 }
 

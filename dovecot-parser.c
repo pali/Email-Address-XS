@@ -766,6 +766,7 @@ static void add_fixed_address(struct message_address_parser_context *ctx)
 static int parse_mailbox(struct message_address_parser_context *ctx)
 {
 	const unsigned char *start;
+	size_t len;
 	int ret;
 
 	/* mailbox         = name-addr / addr-spec */
@@ -792,6 +793,10 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 			free(ctx->addr.comment);
 			ctx->addr.comment = NULL;
 		}
+		if (ctx->addr.original != NULL) {
+			free(ctx->addr.original);
+			ctx->addr.original = NULL;
+		}
 		ctx->parser.data = start;
 		ret = parse_addr_spec(ctx);
 		if (ctx->addr.invalid_syntax && ctx->addr.name == NULL &&
@@ -803,7 +808,19 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 
 	if (ret < 0)
 		ctx->addr.invalid_syntax = true;
+
+	len = ctx->parser.data - start;
+	ctx->addr.original = malloc(len + 1);
+	if (!ctx->addr.original)
+		i_panic("malloc() failed: %s", strerror(errno));
+
+	memcpy(ctx->addr.original, start, len);
+	ctx->addr.original[len] = 0;
+
 	add_fixed_address(ctx);
+
+	free(ctx->addr.original);
+	ctx->addr.original = NULL;
 	return ret;
 }
 
@@ -880,6 +897,8 @@ static int parse_address(struct message_address_parser_context *ctx)
 static int parse_address_list(struct message_address_parser_context *ctx,
 			      unsigned int max_addresses)
 {
+	const unsigned char *start;
+	size_t len;
 	int ret = 0;
 
 	/* address-list    = (address *("," address)) / obs-addr-list */
@@ -893,10 +912,22 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 			break;
 		}
 		ctx->parser.data++;
+		start = ctx->parser.data;
 		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0) {
 			if (ret < 0) {
 				/* ends with some garbage */
+				len = ctx->parser.data - start;
+				ctx->addr.original = malloc(len + 1);
+				if (!ctx->addr.original)
+					i_panic("malloc() failed: %s", strerror(errno));
+
+				memcpy(ctx->addr.original, start, len);
+				ctx->addr.original[len] = 0;
+
 				add_fixed_address(ctx);
+
+				free(ctx->addr.original);
+				ctx->addr.original = NULL;
 			}
 			break;
 		}
@@ -919,6 +950,7 @@ void message_address_add(struct message_address **first, struct message_address 
 	message->mailbox = mailbox ? strdup(mailbox) : NULL;
 	message->domain = domain ? strdup(domain) : NULL;
 	message->comment = comment ? strdup(comment) : NULL;
+	message->original = NULL;
 	message->next = NULL;
 
 	if (!*first)
@@ -943,6 +975,7 @@ void message_address_free(struct message_address **addr)
 		free(current->mailbox);
 		free(current->domain);
 		free(current->comment);
+		free(current->original);
 		free(current);
 		current = next;
 	}
@@ -1146,6 +1179,7 @@ void split_address(const char *input, size_t input_len, char **mailbox, char **d
 	free(ctx.addr.comment);
 	free(ctx.addr.route);
 	free(ctx.addr.name);
+	free(ctx.addr.original);
 
 	str_free(&ctx.str);
 }

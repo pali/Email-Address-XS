@@ -12,7 +12,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 129;
+use Test::More tests => 137;
 use Test::Builder;
 
 #########################
@@ -148,6 +148,7 @@ $address = Email::Address::XS->parse('"Winston Smith" <winston.smith@recdep.mini
 	test_not_tainted($address->comment(), 'Records Department', $subtest);
 	test_not_tainted($address->name(), 'Winston Smith', $subtest);
 	test_not_tainted($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)', $subtest);
+	test_not_tainted($address->original(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)', $subtest);
 }
 
 undef $address;
@@ -163,6 +164,7 @@ $address = Email::Address::XS->parse(taint('"Winston Smith" <winston.smith@recde
 	test_tainted($address->comment(), 'Records Department', $subtest);
 	test_tainted($address->name(), 'Winston Smith', $subtest);
 	test_tainted($address->format(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)', $subtest);
+	test_tainted($address->original(), '"Winston Smith" <winston.smith@recdep.minitrue> (Records Department)', $subtest);
 }
 
 undef $address;
@@ -175,6 +177,7 @@ $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue
 	test_not_tainted($address->host(), 'recdep.minitrue', $subtest);
 	test_not_tainted($address->address(), 'winston.smith@recdep.minitrue', $subtest);
 	test_not_tainted($address->format(), 'winston.smith@recdep.minitrue', $subtest);
+	test_not_tainted($address->original(), 'winston.smith@recdep.minitrue', $subtest);
 }
 
 undef $address;
@@ -187,4 +190,5 @@ $address = Email::Address::XS->parse_bare_address(taint('winston.smith@recdep.mi
 	test_tainted($address->host(), 'recdep.minitrue', $subtest);
 	test_tainted($address->address(), 'winston.smith@recdep.minitrue', $subtest);
 	test_tainted($address->format(), 'winston.smith@recdep.minitrue', $subtest);
+	test_tainted($address->original(), 'winston.smith@recdep.minitrue', $subtest);
 }

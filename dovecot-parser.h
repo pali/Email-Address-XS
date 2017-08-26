@@ -17,6 +17,7 @@ struct message_address {
 	char *mailbox;
 	char *domain;
 	char *comment;
+	char *original;
 	/* there were errors when parsing this address */
 	bool invalid_syntax;
 };

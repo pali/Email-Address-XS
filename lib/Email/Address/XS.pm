@@ -225,8 +225,8 @@ returned. All other parameters are ignored.
 
 Old syntax L<from the Email::Address module|Email::Address/new> is
 supported too. Takes one to four positional arguments: phrase, address
-comment, and original string. An argument original is deprecated and
-ignored. Passing it throws a warning.
+comment, and original string. Passing an argument original is
+deprecated, ignored and throws a warning.
 
 =cut
 
@@ -254,6 +254,7 @@ sub new {
 	}
 
 	my $invalid;
+	my $original;
 	if ( exists $args{copy} ) {
 		if ( $class->is_obj($args{copy}) ) {
 			$args{phrase} = $args{copy}->phrase();
@@ -261,6 +262,7 @@ sub new {
 			$args{user} = $args{copy}->user();
 			$args{host} = $args{copy}->host();
 			$invalid = $args{copy}->{invalid};
+			$original = $args{copy}->{original};
 			delete $args{address};
 		} else {
 			carp 'Named argument copy does not contain a valid object';
@@ -280,6 +282,7 @@ sub new {
 	}
 
 	$self->{invalid} = 1 if $invalid;
+	$self->{original} = $original;
 
 	return $self;
 }
@@ -306,6 +309,7 @@ sub parse {
 	return @addresses if wantarray;
 	my $self = @addresses ? $addresses[0] : Email::Address::XS->new();
 	$self->{invalid} = 1 if scalar @addresses != 1;
+	$self->{original} = $string unless defined $self->{original};
 	return $self;
 }
 
@@ -326,6 +330,7 @@ sub parse_bare_address {
 	my $self = $class->new();
 	if ( defined $string ) {
 		$self->address($string);
+		$self->{original} = $string;
 	} else {
 		carp 'Use of uninitialized value for string';
 	}
@@ -515,6 +520,28 @@ sub name {
 	return '';
 }
 
+=item original
+
+  my $address = Email::Address::XS->parse('(Winston) "Smith"   <winston.smith@recdep.minitrue> (Minitrue)');
+  my $original = $address->original();
+  # (Winston) "Smith"   <winston.smith@recdep.minitrue> (Minitrue)
+  my $format = $address->format();
+  # Smith <winston.smith@recdep.minitrue> (Minitrue)
+
+This method returns original part of the string which was used for
+parsing current Email::Address::XS object. If object was not created
+by parsing input string, then this method returns undef.
+
+Note that L<C<format>|/format> method does not have to return same
+original string.
+
+=cut
+
+sub original {
+	my ($self) = @_;
+	return $self->{original};
+}
+
 =back
 
 =head2 Overloaded Operators
@@ -544,10 +571,10 @@ use overload '""' => sub {
 
 =back
 
-=head2 Deprecated Functions, Methods and Variables
+=head2 Deprecated Functions and Variables
 
 For compatibility with L<the Email::Address module|Email::Address>
-there are defined some deprecated functions, methods and variables.
+there are defined some deprecated functions and variables.
 Do not use them in new code. Their usage throws warnings.
 
 Altering deprecated variable C<$Email::Address::XS::STRINGIFY> changes
@@ -568,18 +595,6 @@ sub disable_cache {
 
 sub enable_cache {
 	carp 'Function enable_cache is deprecated and does nothing';
-}
-
-=pod
-
-Deprecated object method C<original> just returns C<address>.
-
-=cut
-
-sub original {
-	my ($self) = @_;
-	carp 'Method original is deprecated and returns address';
-	return $self->address();
 }
 
 =head1 SEE ALSO

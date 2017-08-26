@@ -615,6 +615,7 @@ static bool get_next_perl_address_group(pTHX_ struct message_address **address, 
 		set_perl_hash_value(aTHX_ hash, "user", ( (*address)->mailbox && (*address)->mailbox[0] ) ? (*address)->mailbox : NULL, utf8, taint);
 		set_perl_hash_value(aTHX_ hash, "host", ( (*address)->domain && (*address)->domain[0] ) ? (*address)->domain : NULL, utf8, taint);
 		set_perl_hash_value(aTHX_ hash, "comment", (*address)->comment, utf8, taint);
+		set_perl_hash_value(aTHX_ hash, "original", (*address)->original, utf8, taint);
 
 		if ((*address)->invalid_syntax)
 			(void)hv_store(hash, "invalid", sizeof("invalid")-1, newSViv(1), 0);
