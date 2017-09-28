@@ -281,8 +281,6 @@ static HV *get_perl_class_from_perl_scalar_or_cv(pTHX_ SV *scalar, CV *cv)
 static bool is_class_object(pTHX_ SV *class, SV *object)
 {
 	dSP;
-	SV *mortal_object;
-	SV *mortal_class;
 	SV *sv;
 	bool ret;
 	int count;
@@ -294,14 +292,10 @@ static bool is_class_object(pTHX_ SV *class, SV *object)
 	SAVETMPS;
 
 	PUSHMARK(SP);
+	EXTEND(SP, 2);
 
-	mortal_object = sv_newmortal();
-	SvSetSV_nosteal(mortal_object, object);
-	XPUSHs(mortal_object);
-
-	mortal_class = sv_newmortal();
-	SvSetSV_nosteal(mortal_class, class);
-	XPUSHs(mortal_class);
+	XPUSHs(sv_2mortal(newSVsv(object)));
+	XPUSHs(sv_2mortal(newSVsv(class)));
 
 	PUTBACK;
 
