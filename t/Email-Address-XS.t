@@ -9,8 +9,6 @@
 use strict;
 use warnings;
 
-local $SIG{__WARN__} = sub { fail('following test does not throw warning'); warn $_[0]; };
-
 # perl version which needs "use utf8;" for comparing utf8 and latin1 strings
 BEGIN {
 	require utf8 if $] < 5.006001;
@@ -22,9 +20,17 @@ $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
 use Test::More tests => 453;
+use Test::Builder;
+
+local $SIG{__WARN__} = sub {
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+	fail('following test does not throw warning');
+	warn $_[0];
+};
 
 sub with_warning(&) {
 	my ($code) = @_;
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
 	my $warn;
 	local $SIG{__WARN__} = sub { $warn = 1; };
 	my @ret = wantarray ? $code->() : scalar $code->();
