@@ -6,7 +6,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 use Carp;
 
@@ -205,6 +205,8 @@ de-duplication or merging.
 Takes an unescaped user part and unescaped host part of an address
 and returns escaped address.
 
+Available since version 1.01.
+
 =item split_address
 
   use Email::Address::XS qw(split_address);
@@ -214,6 +216,8 @@ Takes an escaped address and split it into pair of unescaped user
 part and unescaped host part of address. If splitting input address
 into these two parts is not possible then this function returns
 pair of undefs.
+
+Available since version 1.01.
 
 =back
 
@@ -316,6 +320,9 @@ If more then one object was parsed then L<C<is_valid>|/is_valid>
 method on returned object returns false. If no object was parsed
 then empty Email::Address::XS object is returned.
 
+Prior to version 1.01 return value in scalar context is undef when
+no object was parsed.
+
 =cut
 
 sub parse {
@@ -337,6 +344,8 @@ does not allow phrase part or angle brackets around email address and
 returns an Email::Address::XS object. It is just a wrapper around
 L<C<address>|/address> method. Method L<C<is_valid>|/is_valid> can be
 used to check if parsing was successful.
+
+Available since version 1.01.
 
 =cut
 
@@ -382,6 +391,8 @@ the email address are not empty strings.
 
 Thus this function can be used for checking if Email::Address::XS
 object is valid before calling L<C<format>|/format> method on it.
+
+Available since version 1.01.
 
 =cut
 
@@ -549,6 +560,8 @@ by parsing input string, then this method returns undef.
 
 Note that L<C<format>|/format> method does not have to return same
 original string.
+
+Available since version 1.01.
 
 =cut
 
