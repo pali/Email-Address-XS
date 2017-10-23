@@ -294,8 +294,8 @@ static bool is_class_object(pTHX_ SV *class, SV *object)
 	PUSHMARK(SP);
 	EXTEND(SP, 2);
 
-	XPUSHs(sv_2mortal(newSVsv(object)));
-	XPUSHs(sv_2mortal(newSVsv(class)));
+	PUSHs(sv_2mortal(newSVsv(object)));
+	PUSHs(sv_2mortal(newSVsv(class)));
 
 	PUTBACK;
 
