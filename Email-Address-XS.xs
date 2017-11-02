@@ -22,6 +22,11 @@
 #define UTF8_IS_INVARIANT(c) (((U8)c) < 0x80)
 #endif
 
+/* Perl pre 5.9.5 support */
+#ifndef SVfARG
+#define SVfARG(p) ((void*)(p))
+#endif
+
 /* Perl pre 5.10.1 support */
 #ifndef newSVpvn_utf8
 static SV *newSVpvn_utf8(pTHX_ const char *str, STRLEN len, U32 utf8) {
@@ -34,10 +39,10 @@ static SV *newSVpvn_utf8(pTHX_ const char *str, STRLEN len, U32 utf8) {
 
 /* Perl pre 5.13.1 support */
 #ifndef warn_sv
-#define warn_sv(scalar) warn("%s", SvPV_nolen(scalar))
+#define warn_sv(scalar) warn("%" SVf, SVfARG(scalar))
 #endif
 #ifndef croak_sv
-#define croak_sv(scalar) croak("%s", SvPV_nolen(scalar))
+#define croak_sv(scalar) croak("%" SVf, SVfARG(scalar))
 #endif
 
 /* Perl pre 5.15.4 support */
