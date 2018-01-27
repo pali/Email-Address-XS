@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright (c) 2015-2017 by Pali <pali@cpan.org>
+# Copyright (c) 2015-2018 by Pali <pali@cpan.org>
 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl Email-Address-XS.t'
@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 478;
+use Test::More tests => 474;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -1332,28 +1332,28 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 {
 	my $undef = undef;
 	is_deeply(
-		[ parse_email_groups("string1\x00string2") ],
-		[ undef, [ Email::Address::XS->new(user => 'string1') ] ],
+		[ parse_email_groups("\"string1\x00string2\"") ],
+		[ undef, [ Email::Address::XS->new(phrase => "string1\x00string2") ] ],
 		'test function parse_email_groups() on string with nul character',
 	);
 	is(
-		with_warning { format_email_groups($undef => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]) },
-		'string1 <user@host>',
+		format_email_groups($undef => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]),
+		"\"string1\x00string2\" <user\@host>",
 		'test function format_email_groups() with nul character in phrase',
 	);
 	is(
-		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => "string1\x00string2", host => 'host') ]) },
-		'string1@host',
+		format_email_groups($undef => [ Email::Address::XS->new(user => "string1\x00string2", host => 'host') ]),
+		"\"string1\x00string2\"\@host",
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
-		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]) },
-		'user@string1',
+		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]),
+		"user\@string1\x00string2",
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
-		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]) },
-		'user@host (string1)',
+		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]),
+		"user\@host (string1\x00string2)",
 		'test function format_email_groups() with nul character in comment',
 	);
 }
