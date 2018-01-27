@@ -730,6 +730,8 @@ PREINIT:
 	const char *domain;
 	STRLEN mailbox_len;
 	STRLEN domain_len;
+	bool mailbox_utf8;
+	bool domain_utf8;
 	bool utf8;
 	bool taint;
 	SV *mailbox_scalar;
@@ -738,9 +740,15 @@ PREINIT:
 INIT:
 	mailbox_scalar = items >= 1 ? ST(0) : &PL_sv_undef;
 	domain_scalar = items >= 2 ? ST(1) : &PL_sv_undef;
-	mailbox = get_perl_scalar_string_value(aTHX_ mailbox_scalar, &mailbox_len, "mailbox", true);
-	domain = get_perl_scalar_string_value(aTHX_ domain_scalar, &domain_len, "domain", true);
-	utf8 = (SvUTF8(mailbox_scalar) || SvUTF8(domain_scalar));
+	mailbox = get_perl_scalar_string_value(aTHX_ mailbox_scalar, &mailbox_len, "mailbox", false);
+	domain = get_perl_scalar_string_value(aTHX_ domain_scalar, &domain_len, "domain", false);
+	mailbox_utf8 = SvUTF8(mailbox_scalar);
+	domain_utf8 = SvUTF8(domain_scalar);
+	utf8 = (mailbox_utf8 || domain_utf8);
+	if (utf8 && !mailbox_utf8)
+		mailbox = get_perl_scalar_value(aTHX_ mailbox_scalar, &mailbox_len, true, true);
+	if (utf8 && !domain_utf8)
+		domain = get_perl_scalar_value(aTHX_ domain_scalar, &domain_len, true, true);
 	taint = (SvTAINTED(mailbox_scalar) || SvTAINTED(domain_scalar));
 	if (string_contains_nul(mailbox, mailbox_len))
 		carp(CARP_WARN, "Nul character in user portion of address");
