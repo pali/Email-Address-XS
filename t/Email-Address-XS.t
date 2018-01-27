@@ -1079,7 +1079,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 	is(
 		format_email_groups("\x{2764} \x{2600}" => [ Email::Address::XS->new(phrase => "\x{2606} \x{2602}", user => "\x{263b} \x{265e}", host => "\x{262f}.\x{262d}", comment => "\x{2622} \x{20ac}") ]),
-		"\"\x{2764} \x{2600}\": \"\x{2606} \x{2602}\" <\"\x{263b} \x{265e}\"@\x{262f}.\x{262d}> (\x{2622} \x{20ac});",
+		"\"\x{2764} \x{2600}\": \"\x{2606} \x{2602}\" <\"\x{263b} \x{265e}\"\@\x{262f}.\x{262d}> (\x{2622} \x{20ac});",
 		'test function format_email_groups() that preserves unicode characters and UTF-8 status flag',
 	);
 
@@ -1091,7 +1091,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 	is(
 		format_email_groups("ASCII" => [ Email::Address::XS->new(user => "L\x{e1}tin1", host => "\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404}") ]),
-		"ASCII: L\x{e1}tin1@\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404};",
+		"ASCII: L\x{e1}tin1\@\x{1d414}\x{1d40d}\x{1d408}\x{1d402}\x{1d40e}\x{1d403}\x{1d404};",
 		'test function format_email_groups() that correctly compose UNICODE string from ASCII, Latin1 and UNICODE parts',
 	);
 
@@ -1245,7 +1245,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is_deeply(
-		[ parse_email_groups("\"\x{2764} \x{2600}\": \"\x{2606} \x{2602}\" <\"\x{263b} \x{265e}\"@\x{262f}.\x{262d}> (\x{2622} \x{20ac});") ],
+		[ parse_email_groups("\"\x{2764} \x{2600}\": \"\x{2606} \x{2602}\" <\"\x{263b} \x{265e}\"\@\x{262f}.\x{262d}> (\x{2622} \x{20ac});") ],
 		[ "\x{2764} \x{2600}" => [ Email::Address::XS->new(phrase => "\x{2606} \x{2602}", user => "\x{263b} \x{265e}", host => "\x{262f}.\x{262d}", comment => "\x{2622} \x{20ac}") ] ],
 		'test function parse_email_groups() that preserve unicode characters and UTF-8 status flag',
 	);
