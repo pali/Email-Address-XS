@@ -757,6 +757,7 @@ static void add_fixed_address(struct message_address_parser_context *ctx)
 		ctx->addr.invalid_syntax = true;
 	}
 	if (ctx->addr.domain == NULL || ctx->addr.domain[0] == '\0') {
+		free(ctx->addr.domain);
 		ctx->addr.domain = strdup(!ctx->fill_missing ? "" : "MISSING_DOMAIN");
 		ctx->addr.invalid_syntax = true;
 	}
