@@ -27,16 +27,6 @@
 #define SVfARG(p) ((void*)(p))
 #endif
 
-/* Perl pre 5.10.1 support */
-#ifndef newSVpvn_utf8
-static SV *newSVpvn_utf8(pTHX_ const char *str, STRLEN len, U32 utf8) {
-	SV *sv = newSVpvn(str, len);
-	if (utf8) SvUTF8_on(sv);
-	return sv;
-}
-#define newSVpvn_utf8(str, len, utf8) newSVpvn_utf8(aTHX_ str, len, utf8)
-#endif
-
 /* Perl pre 5.13.1 support */
 #ifndef warn_sv
 #define warn_sv(scalar) warn("%" SVf, SVfARG(scalar))
@@ -282,7 +272,7 @@ static HV *get_perl_class_from_perl_scalar_or_cv(pTHX_ SV *scalar, CV *cv)
 		return get_perl_class_from_perl_cv(aTHX_ cv);
 }
 
-static bool is_class_object(pTHX_ SV *class, SV *object)
+static bool is_class_object(pTHX_ SV *class, const char *class_name, STRLEN class_len, SV *object)
 {
 	dSP;
 	SV *sv;
@@ -298,8 +288,15 @@ static bool is_class_object(pTHX_ SV *class, SV *object)
 	PUSHMARK(SP);
 	EXTEND(SP, 2);
 
+	if (class) {
+		sv = newSVsv(class);
+	} else {
+		sv = newSVpvn(class_name, class_len);
+		SvUTF8_on(sv);
+	}
+
 	PUSHs(sv_2mortal(newSVsv(object)));
-	PUSHs(sv_2mortal(newSVsv(class)));
+	PUSHs(sv_2mortal(sv));
 
 	PUTBACK;
 
@@ -346,7 +343,7 @@ static void fill_element_message(char *buffer, size_t len, I32 index1, I32 index
 		sprintf(buffer+sizeof(message)-1, "%d/%d", (int)index1, (int)index2);
 }
 
-static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 index2, SV *class, bool warn)
+static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 index2, const char *class_name, STRLEN class_len, bool warn)
 {
 	SV *scalar;
 	SV *object;
@@ -367,10 +364,10 @@ static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 inde
 	}
 
 	object = *object_ptr;
-	if (!is_class_object(aTHX_ class, object)) {
+	if (!is_class_object(aTHX_ NULL, class_name, class_len, object)) {
 		if (warn) {
 			fill_element_message(buffer, sizeof(buffer), index1, index2);
-			carp(CARP_WARN, "%s is not %s object", buffer, SvPV_nolen(class));
+			carp(CARP_WARN, "%s is not %s object", buffer, class_name);
 		}
 		return NULL;
 	}
@@ -388,7 +385,7 @@ static HV* get_object_hash_from_perl_array(pTHX_ AV *array, I32 index1, I32 inde
 
 }
 
-static void message_address_add_from_perl_array(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, AV *array, I32 index1, I32 index2, SV *class)
+static void message_address_add_from_perl_array(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, AV *array, I32 index1, I32 index2, const char *class_name, STRLEN class_len)
 {
 	HV *hash;
 	const char *name;
@@ -401,7 +398,7 @@ static void message_address_add_from_perl_array(pTHX_ struct message_address **f
 	STRLEN comment_len;
 	char buffer[40] = { 0 };
 
-	hash = get_object_hash_from_perl_array(aTHX_ array, index1, index2, class, false);
+	hash = get_object_hash_from_perl_array(aTHX_ array, index1, index2, class_name, class_len, false);
 	if (!hash)
 		return;
 
@@ -462,7 +459,7 @@ static AV *get_perl_array_from_scalar(SV *scalar, const char *group_name, bool w
 	return (AV *)scalar_ref;
 }
 
-static void message_address_add_from_perl_group(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, SV *scalar_group, SV *scalar_list, I32 index1, SV *class)
+static void message_address_add_from_perl_group(pTHX_ struct message_address **first_address, struct message_address **last_address, bool utf8, bool *taint, SV *scalar_group, SV *scalar_list, I32 index1, const char *class_name, STRLEN class_len)
 {
 	I32 len;
 	I32 index2;
@@ -481,7 +478,7 @@ static void message_address_add_from_perl_group(pTHX_ struct message_address **f
 		message_address_add(first_address, last_address, NULL, 0, NULL, 0, group_name, group_len, NULL, 0, NULL, 0);
 
 	for (index2 = 0; index2 < len; ++index2)
-		message_address_add_from_perl_array(aTHX_ first_address, last_address, utf8, taint, array, index1, ((index1 == -1 && len == 1) ? -1 : index2), class);
+		message_address_add_from_perl_array(aTHX_ first_address, last_address, utf8, taint, array, index1, ((index1 == -1 && len == 1) ? -1 : index2), class_name, class_len);
 
 	if (group_name)
 		message_address_add(first_address, last_address, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0);
@@ -491,7 +488,7 @@ static void message_address_add_from_perl_group(pTHX_ struct message_address **f
 }
 
 #ifndef WITHOUT_SvPV_nomg
-static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 index1, SV *class)
+static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 index1, const char *class_name, STRLEN class_len)
 {
 	I32 len;
 	I32 index2;
@@ -518,7 +515,7 @@ static bool perl_group_needs_utf8(pTHX_ SV *scalar_group, SV *scalar_list, I32 i
 	len = array ? (av_len(array) + 1) : 0;
 
 	for (index2 = 0; index2 < len; ++index2) {
-		hash = get_object_hash_from_perl_array(aTHX_ array, index1, ((index1 == -1 && len == 1) ? -1 : index2), class, true);
+		hash = get_object_hash_from_perl_array(aTHX_ array, index1, ((index1 == -1 && len == 1) ? -1 : index2), class_name, class_len, true);
 		if (!hash)
 			continue;
 		for (hash_key_ptr = hash_keys; *hash_key_ptr; ++hash_key_ptr) {
@@ -625,7 +622,8 @@ PREINIT:
 	struct message_address *last_address;
 	SV *string_scalar;
 INPUT:
-	SV *this_class = sv_2mortal(newSVpvn_utf8("$Package", sizeof("$Package")-1, 1));
+	const char *this_class_name = "$Package";
+	STRLEN this_class_len = sizeof("$Package")-1;
 INIT:
 	if (items % 2 == 1) {
 		carp(CARP_WARN, "Odd number of elements in argument list");
@@ -638,13 +636,13 @@ PPCODE:
 #ifndef WITHOUT_SvPV_nomg
 	utf8 = false;
 	for (i = 0; i < items; i += 2)
-		if (perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), (items == 2 ? -1 : i), this_class))
+		if (perl_group_needs_utf8(aTHX_ ST(i), ST(i+1), (items == 2 ? -1 : i), this_class_name, this_class_len))
 			utf8 = true;
 #else
 	utf8 = true;
 #endif
 	for (i = 0; i < items; i += 2)
-		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, &taint, ST(i), ST(i+1), (items == 2 ? -1 : i), this_class);
+		message_address_add_from_perl_group(aTHX_ &first_address, &last_address, utf8, &taint, ST(i), ST(i+1), (items == 2 ? -1 : i), this_class_name, this_class_len);
 	message_address_write(&string, &string_len, first_address);
 	message_address_free(&first_address);
 	string_scalar = sv_2mortal(newSVpvn(string, string_len));
@@ -781,6 +779,6 @@ PREINIT:
 	SV *class = items >= 1 ? ST(0) : &PL_sv_undef;
 	SV *object = items >= 2 ? ST(1) : &PL_sv_undef;
 CODE:
-	RETVAL = is_class_object(aTHX_ class, object);
+	RETVAL = is_class_object(aTHX_ class, NULL, 0, object);
 OUTPUT:
 	RETVAL
