@@ -259,7 +259,7 @@ static HV *get_perl_class_from_perl_scalar(pTHX_ SV *scalar)
 
 	class = gv_stashpvn(class_name, class_len, GV_ADD | SVf_UTF8);
 	if (!class)
-		carp(CARP_DIE, "Cannot retrieve class %s", class_name);
+		carp(CARP_DIE, "Cannot retrieve class %" SVf, SVfARG(scalar));
 
 	return class;
 }
@@ -667,7 +667,6 @@ PREINIT:
 	bool taint;
 	STRLEN input_len;
 	const char *input;
-	const char *class_name;
 	struct message_address *address;
 	struct message_address *first_address;
 INPUT:
@@ -681,8 +680,7 @@ INIT:
 	taint = SvTAINTED(string_scalar);
 	hv_class = get_perl_class_from_perl_scalar_or_cv(aTHX_ class_scalar, cv);
 	if (class_scalar && !sv_derived_from_pvn(class_scalar, this_class_name, this_class_len, SVf_UTF8)) {
-		class_name = HvNAME(hv_class);
-		carp(CARP_WARN, "Class %s is not derived from %s", (class_name ? class_name : "(unknown)"), this_class_name);
+		carp(CARP_WARN, "Class %" SVf " is not derived from %s", SVfARG(class_scalar), this_class_name);
 		XSRETURN_EMPTY;
 	}
 PPCODE:
