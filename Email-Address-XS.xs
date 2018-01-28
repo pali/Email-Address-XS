@@ -264,6 +264,7 @@ static HV *get_perl_class_from_perl_scalar(pTHX_ SV *scalar)
 	if (class_len == 0) {
 		carp(CARP_WARN, "Explicit blessing to '' (assuming package main)");
 		class_name = "main";
+		class_len = strlen(class_name);
 	}
 
 	class = gv_stashpvn(class_name, class_len, GV_ADD | SVf_UTF8);
