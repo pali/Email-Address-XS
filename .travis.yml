@@ -26,6 +26,7 @@ matrix:
       dist: trusty
     - perl: system_trusty
       dist: trusty
+      if: (branch = master) AND (type != pull_request)
       env:
         - secure: "UrBgPoJ5AyCrOC1b2seUN0hhlQX8g5ILazjJ7qY2owjPym2FHwWvoBPQAYbHaYkkdUjMAaK3VcOCTZhJVGj2ytEleDJlEE0gLQxxQfsxS/EwLakOmo/fWHWiTJejTqq41yl15mxFwY9OJ2W/jUHXtIuvmGXqKOmrKYhC7OW9nC/Ot3F+5A6NR5AkIF9L9zjRYm6mGEkjSUrSNSnIfAGjxuefM03P0nU5CKPCnz5CEG5y60jjyqSIln1YXwt26bw8vnz16t14tanew4QPAaZrGLJT7Rpv4jy0SjMtw57L9uJU20GJWW4HtXbGrCH9kBBxXFKWF0SiPUTr9+21Zp+9rqI/c+TGqNdFQefMTsNBmI59Bd4noJhEY8PIClWZRG2qgsnV0cCYXqa8RPjQ+ysUQTWGthn/kedvFMmAhiUBFwXMF4Ptk9UT1dsDWsMq8u5yJzRGeek3ArRTfSfe2sGkASxEjVpQRcjyzvH4aJGJYCO7iEjA0bTcRRxhWhLGiN1gKqC1MTZghXU0ZCUM3T9SLff5KnO/0+cztRHzmcb2Tf8X9eGp1O/Kkbmqjr1EGM2XNQ3WGRSH1BfngOrFbV6Nl5DWq/FEkoyqDIdfBwAdVpMXCV4PMv1CT7Tad+Ga9QUT/TIaZAow/FwSX9QtdIUOmULvLPhs5CFIz05andv7MqE="
       addons:
