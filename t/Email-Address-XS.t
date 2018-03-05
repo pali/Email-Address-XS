@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 474;
+use Test::More tests => 476;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -972,6 +972,18 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 			Email::Address::XS->new(phrase => '(S)MaNu_vuOLeAmMazZaReNimOe(*)MiAo(@)', user => 'email4', host => 'example.com'),
 		],
 		'test function parse_email_addresses() on CVE-2015-7686 string',
+	);
+
+	is_deeply(
+		[ parse_email_addresses('aaaa@') ],
+		[ Email::Address::XS->new(user => 'aaaa') ],
+		'test function parse_email_addresses() on CVE-2017-14461 string',
+	);
+
+	is_deeply(
+		[ parse_email_addresses('a(aa') ],
+		[ Email::Address::XS->new() ],
+		'test function parse_email_addresses() on CVE-2017-14461 string',
 	);
 
 	is_deeply(
