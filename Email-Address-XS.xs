@@ -422,15 +422,13 @@ static void message_address_add_from_perl_array(pTHX_ struct message_address **f
 	if (!mailbox) {
 		fill_element_message(buffer, sizeof(buffer), index1, index2);
 		carp(CARP_WARN, "%s contains empty user portion of address", buffer);
-		mailbox = "";
-		mailbox_len = 0;
+		return;
 	}
 
 	if (!domain) {
 		fill_element_message(buffer, sizeof(buffer), index1, index2);
 		carp(CARP_WARN, "%s contains empty host portion of address", buffer);
-		domain = "";
-		domain_len = 0;
+		return;
 	}
 
 	message_address_add(first_address, last_address, name, name_len, NULL, 0, mailbox, mailbox_len, domain, domain_len, comment, comment_len);

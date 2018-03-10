@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 487;
+use Test::More tests => 489;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -256,8 +256,8 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		my $address = Email::Address::XS->new(user => '', host => '', phrase => 'phrase');
 		ok(!$address->is_valid(), $subtest);
 		is($address->phrase(), 'phrase', $subtest);
-		is($address->user(), '', $subtest);
-		is($address->host(), '', $subtest);
+		is($address->user(), undef, $subtest);
+		is($address->host(), undef, $subtest);
 		is($address->address(), undef, $subtest);
 		is($address->comment(), undef, $subtest);
 		is($address->name(), 'phrase', $subtest);
@@ -565,13 +565,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is(with_warning { $address->format() }, '', 'test method format()');
 
 	$address->user('julia');
-	is(with_warning { $address->format() }, 'julia@', 'test method format()');
+	is(with_warning { $address->format() }, '', 'test method format()');
 
 	$address->host('ficdep.minitrue');
 	is($address->format(), 'julia@ficdep.minitrue', 'test method format()');
 
 	$address->user(undef);
-	is(with_warning { $address->format() }, '@ficdep.minitrue', 'test method format()');
+	is(with_warning { $address->format() }, '', 'test method format()');
 
 }
 
@@ -1388,13 +1388,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]),
-		"user\@string1\x00string2",
+		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]) },
+		'',
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "\x00string1\x00string2\x00") ]),
-		"user\@\x00string1\x00string2\x00",
+		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "\x00string1\x00string2\x00") ]) },
+		'',
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
