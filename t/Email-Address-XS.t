@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 481;
+use Test::More tests => 487;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -1357,9 +1357,24 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		[ undef, [ Email::Address::XS->new(phrase => "string1\x00string2") ] ],
 		'test function parse_email_groups() on string with nul character',
 	);
+	is_deeply(
+		[ parse_email_groups("\"\x00string1\x00string2\"") ],
+		[ undef, [ Email::Address::XS->new(phrase => "\x00string1\x00string2") ] ],
+		'test function parse_email_groups() on string which begins with nul character',
+	);
+	is_deeply(
+		[ parse_email_groups("\"string1\x00string2\x00\"") ],
+		[ undef, [ Email::Address::XS->new(phrase => "string1\x00string2\x00") ] ],
+		'test function parse_email_groups() on string which ends with nul character',
+	);
 	is(
 		format_email_groups($undef => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]),
 		"\"string1\x00string2\" <user\@host>",
+		'test function format_email_groups() with nul character in phrase',
+	);
+	is(
+		format_email_groups($undef => [ Email::Address::XS->new(phrase => "\x00string1\x00string2\x00", user => 'user', host => 'host') ]),
+		"\"\x00string1\x00string2\x00\" <user\@host>",
 		'test function format_email_groups() with nul character in phrase',
 	);
 	is(
@@ -1368,13 +1383,28 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
+		format_email_groups($undef => [ Email::Address::XS->new(user => "\x00string1\x00string2\x00", host => 'host') ]),
+		"\"\x00string1\x00string2\x00\"\@host",
+		'test function format_email_groups() with nul character in user part of address',
+	);
+	is(
 		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]),
 		"user\@string1\x00string2",
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
+		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "\x00string1\x00string2\x00") ]),
+		"user\@\x00string1\x00string2\x00",
+		'test function format_email_groups() with nul character in host part of address',
+	);
+	is(
 		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]),
 		"user\@host (string1\x00string2)",
+		'test function format_email_groups() with nul character in comment',
+	);
+	is(
+		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "\x00string1\x00string2\x00") ]),
+		"user\@host (\x00string1\x00string2\x00)",
 		'test function format_email_groups() with nul character in comment',
 	);
 }
