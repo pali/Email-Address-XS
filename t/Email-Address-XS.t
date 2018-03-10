@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 476;
+use Test::More tests => 481;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -563,6 +563,15 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 	$address->address(undef);
 	is(with_warning { $address->format() }, '', 'test method format()');
+
+	$address->user('julia');
+	is(with_warning { $address->format() }, 'julia@', 'test method format()');
+
+	$address->host('ficdep.minitrue');
+	is($address->format(), 'julia@ficdep.minitrue', 'test method format()');
+
+	$address->user(undef);
+	is(with_warning { $address->format() }, '@ficdep.minitrue', 'test method format()');
 
 }
 
