@@ -1140,6 +1140,18 @@ void message_address_write(char **output, size_t *output_len, const struct messa
 
 	str = str_new(128);
 
+#if 0
+	if (addr == NULL)
+		return;
+
+	/* <> path */
+	if (addr->mailbox == NULL && addr->domain == NULL) {
+		i_assert(addr->next == NULL);
+		str_append(str, "<>");
+		return;
+	}
+#endif
+
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain>
 	   c) group: .. ; */
