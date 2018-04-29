@@ -57,6 +57,9 @@ typedef struct {
 struct rfc822_parser_context {
 	const unsigned char *data, *end;
 	string_t *last_comment;
+
+	/* Replace NUL characters with this string */
+	const char *nul_replacement_str;
 };
 
 struct message_address_parser_context {
@@ -309,6 +312,15 @@ static void rfc822_parser_init(struct rfc822_parser_context *ctx,
 	ctx->last_comment = last_comment;
 }
 
+static void rfc822_parser_deinit(struct rfc822_parser_context *ctx)
+{
+	/* make sure the parsing didn't trigger a bug that caused reading
+	   past the end pointer. */
+	i_assert(ctx->data <= ctx->end);
+	/* make sure the parser is no longer accessed */
+	ctx->data = ctx->end = NULL;
+}
+
 /* The functions below return 1 = more data available, 0 = no more data
    available (but a value might have been returned now), -1 = invalid input.
 
@@ -319,6 +331,7 @@ static void rfc822_parser_init(struct rfc822_parser_context *ctx,
 static int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 {
 	const unsigned char *start;
+	size_t len;
 	int level = 1;
 
 	i_assert(*ctx->data == '(');
@@ -329,6 +342,19 @@ static int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 	start = ++ctx->data;
 	for (; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_str != NULL) {
+				if (ctx->last_comment != NULL) {
+					str_append_data(ctx->last_comment, start,
+							ctx->data - start);
+					str_append(ctx->last_comment,
+						   ctx->nul_replacement_str);
+					start = ctx->data + 1;
+				}
+			} else {
+				return -1;
+			}
+			break;
 		case '(':
 			level++;
 			break;
@@ -336,22 +362,41 @@ static int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 			if (--level == 0) {
 				if (ctx->last_comment != NULL) {
 					str_append_data(ctx->last_comment, start,
-						     ctx->data - start);
+							ctx->data - start);
 				}
 				ctx->data++;
 				return ctx->data < ctx->end ? 1 : 0;
 			}
 			break;
-		case '\\':
-			if (ctx->last_comment != NULL) {
-				str_append_data(ctx->last_comment, start,
-					     ctx->data - start);
-			}
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			if (ctx->last_comment == NULL)
+				break;
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_data(ctx->last_comment, start, len);
 			start = ctx->data + 1;
-
+			break;
+		case '\\':
 			ctx->data++;
 			if (ctx->data >= ctx->end)
 				return -1;
+#if 0
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				ctx->data--;
+				break;
+			}
+#endif
+			if (ctx->last_comment != NULL) {
+				str_append_data(ctx->last_comment, start,
+						ctx->data - start - 1);
+			}
+			start = ctx->data;
 			break;
 		}
 	}
@@ -447,6 +492,15 @@ static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_
 
 	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_str != NULL) {
+				str_append_data(str, start, ctx->data - start);
+				str_append(str, ctx->nul_replacement_str);
+				start = ctx->data + 1;
+			} else {
+				return -1;
+			}
+			break;
 		case '"':
 			str_append_data(str, start, ctx->data - start);
 			ctx->data++;
@@ -463,7 +517,15 @@ static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_
 			ctx->data++;
 			if (ctx->data >= ctx->end)
 				return -1;
-
+#if 0
+			if (*ctx->data == '\r' || *ctx->data == '\n') {
+				/* quoted-pair doesn't allow CR/LF.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				ctx->data--;
+				break;
+			}
+#endif
 			str_append_data(str, start, ctx->data - start - 1);
 			start = ctx->data;
 			break;
@@ -536,6 +598,7 @@ static int
 rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
+	size_t len;
 
 	/*
 	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
@@ -548,15 +611,49 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '[');
 
-	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
-		if (*ctx->data == '\\') {
+	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
+		switch (*ctx->data) {
+		case '\0':
+			if (ctx->nul_replacement_str != NULL) {
+				str_append_data(str, start, ctx->data - start);
+				str_append(str, ctx->nul_replacement_str);
+				start = ctx->data + 1;
+			} else {
+				return -1;
+			}
+			break;
+		case '[':
+			/* not allowed */
+			return -1;
+		case ']':
+			str_append_data(str, start, ctx->data - start + 1);
+			ctx->data++;
+			return rfc822_skip_lwsp(ctx);
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_data(str, start, len);
+			start = ctx->data + 1;
+			break;
+		case '\\':
+			/* note: the '\' is preserved in the output */
 			ctx->data++;
 			if (ctx->data >= ctx->end)
+				return -1;
+#if 0
+			if (*ctx->data == '\r' || *ctx->data == '\n') {
+				/* quoted-pair doesn't allow CR/LF.
+				   They are part of the obs-qp though, so don't
+				   return them as error. */
+				str_append_data(str, start, ctx->data - start);
+				start = ctx->data;
+				ctx->data--;
 				break;
-		} else if (*ctx->data == ']') {
-			ctx->data++;
-			str_append_data(str, start, ctx->data - start);
-			return rfc822_skip_lwsp(ctx);
+			}
+#endif
+			break;
 		}
 	}
 
@@ -673,7 +770,8 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 	return dot_problem ? -2 : 1;
 }
 
-static int parse_angle_addr(struct message_address_parser_context *ctx)
+static int parse_angle_addr(struct message_address_parser_context *ctx,
+			    bool parsing_path)
 {
 	int ret;
 
@@ -681,11 +779,15 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 	i_assert(*ctx->parser.data == '<');
 	ctx->parser.data++;
 
-	if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
-		return ret;
+	if (rfc822_skip_lwsp(&ctx->parser) <= 0)
+		return -1;
 
 	if (*ctx->parser.data == '@') {
-		if ((ret = parse_domain_list(ctx)) <= 0 || *ctx->parser.data != ':') {
+		if ((ret = parse_domain_list(ctx)) > 0 && *ctx->parser.data == ':') {
+			ctx->parser.data++;
+		} else if (parsing_path && *ctx->parser.data != ':') {
+			return -1;
+		} else {
 			if (ctx->fill_missing && ret != -2)
 				ctx->addr.route = strdup("INVALID_ROUTE");
 			ctx->addr.invalid_syntax = true;
@@ -694,26 +796,23 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 			if (ret == -2)
 				ctx->parser.data++;
 			/* try to continue anyway */
-		} else {
-			ctx->parser.data++;
 		}
-		ctx->parser.data++;
-		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
-			return ret;
+		if (rfc822_skip_lwsp(&ctx->parser) <= 0)
+			return -1;
 	}
 
 	if (*ctx->parser.data == '>') {
 		/* <> address isn't valid */
 	} else {
 		if ((ret = parse_local_part(ctx)) <= 0 && ret != -2)
-			return ret;
+			return -1;
 		if (ret == -2)
 			ctx->addr.invalid_syntax = true;
 		if (ctx->parser.data >= ctx->parser.end)
 			return 0;
 		if (*ctx->parser.data == '@') {
 			if ((ret = parse_domain(ctx)) <= 0 && ret != -2)
-				return ret;
+				return -1;
 			if (ret == -2)
 				ctx->addr.invalid_syntax = true;
 			if (ctx->parser.data >= ctx->parser.end)
@@ -750,7 +849,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 	if (ctx->parser.last_comment != NULL)
 		str_truncate(ctx->parser.last_comment, 0);
 
-	if (parse_angle_addr(ctx) < 0) {
+	if (parse_angle_addr(ctx, false) < 0) {
 		/* broken */
 		if (ctx->fill_missing)
 			ctx->addr.domain = strdup("SYNTAX_ERROR");
@@ -1112,6 +1211,8 @@ message_address_parse(const char *input, size_t input_len,
 	str_free(&ctx.str);
 	str_free(&str);
 
+	rfc822_parser_deinit(&ctx.parser);
+
 	return ctx.first_addr;
 }
 
@@ -1298,6 +1399,9 @@ void split_address(const char *input, size_t input_len, char **mailbox, size_t *
 	else
 		ret = -1;
 
+	if (ret >= 0)
+		ret = rfc822_skip_lwsp(&ctx.parser);
+
 	if (ret < 0 || ctx.parser.data != ctx.parser.end || ctx.addr.invalid_syntax) {
 		free(ctx.addr.mailbox);
 		free(ctx.addr.domain);
@@ -1316,6 +1420,8 @@ void split_address(const char *input, size_t input_len, char **mailbox, size_t *
 	free(ctx.addr.route);
 	free(ctx.addr.name);
 	free(ctx.addr.original);
+
+	rfc822_parser_deinit(&ctx.parser);
 
 	str_free(&ctx.str);
 }
