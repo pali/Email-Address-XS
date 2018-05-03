@@ -1028,8 +1028,6 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 {
 
-	my $undef = undef;
-
 	my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue');
 	my $julias_address = Email::Address::XS->new(phrase => 'Julia', address => 'julia@ficdep.minitrue');
 	my $obriens_address = Email::Address::XS->new(phrase => "O'Brien", user => "o'brien", host => 'thought.police.oceania');
@@ -1079,13 +1077,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is(
-		format_email_groups($undef => []),
+		format_email_groups(undef() => []),
 		'',
 		'test function format_email_groups() with empty list of addresses in one undef group',
 	);
 
 	is(
-		format_email_groups($undef => [ $users_address ]),
+		format_email_groups(undef() => [ $users_address ]),
 		'user@oceania',
 		'test function format_email_groups() with one email address in undef group',
 	);
@@ -1103,13 +1101,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	);
 
 	is(
-		format_email_groups($undef => [ $derived_object ]),
+		format_email_groups(undef() => [ $derived_object ]),
 		'user_derived_suffix@host',
 		'test function format_email_groups() with derived object class',
 	);
 
 	is(
-		with_warning { format_email_groups($undef => [ $not_derived_object ]) },
+		with_warning { format_email_groups(undef() => [ $not_derived_object ]) },
 		'',
 		'test function format_email_groups() with not derived object class',
 	);
@@ -1123,7 +1121,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is(
 		format_email_groups(
 			$brotherhood_group => [ $winstons_address, $julias_address ],
-			$undef => [ $users_address ]
+			undef() => [ $users_address ]
 		),
 		'Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, user@oceania',
 		'test function format_email_groups() with addresses in two groups',
@@ -1165,9 +1163,9 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		format_email_groups(
 			$minitrue_group => [ $winstons_address, $julias_address ],
 			$thoughtpolice_group => [ $obriens_address, $charringtons_address ],
-			$undef => [ $users_address, $user2s_address ],
+			undef() => [ $users_address, $user2s_address ],
 			$undisclosed_group => [],
-			$undef => [ $user3s_address ],
+			undef() => [ $user3s_address ],
 			$brotherhood_group => [ $goldsteins_address ],
 			$users_group => [ $user4s_address ],
 		),
@@ -1259,8 +1257,6 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 {
 
-	my $undef = undef;
-
 	is_deeply(
 		[ with_warning { parse_email_groups(undef) } ],
 		[],
@@ -1276,7 +1272,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is_deeply(
 		[ parse_email_groups('incorrect') ],
 		[
-			$undef => [
+			undef() => [
 				Email::Address::XS->new(phrase => 'incorrect'),
 			],
 		],
@@ -1286,7 +1282,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is_deeply(
 		[ parse_email_groups('winston.smith@recdep.minitrue', 'Email::Address::XS::Derived') ],
 		[
-			$undef => [
+			undef() => [
 				bless({ phrase => undef, user => 'winston.smith', host => 'recdep.minitrue', comment => undef }, 'Email::Address::XS::Derived'),
 			],
 		],
@@ -1327,12 +1323,12 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 				Email::Address::XS->new(phrase => "O'Brien", user => "o'brien", host => 'thought.police.oceania'),
 				Email::Address::XS->new(phrase => 'Mr. Charrington', user => 'charrington"@"shop', host => 'thought.police.oceania', comment => 'junk shop'),
 			],
-			$undef => [
+			undef() => [
 				Email::Address::XS->new(address => 'user@oceania', comment => 'unknown_display_name in comment'),
 				Email::Address::XS->new(phrase => 'Escape " also , characters', address => 'user2@oceania'),
 			],
 			'undisclosed-recipients' => [],
-			$undef => [
+			undef() => [
 				Email::Address::XS->new(address => 'user3@oceania', comment => 'nested (comment)'),
 			],
 			Brotherhood => [
@@ -1351,7 +1347,6 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 #########################
 
 {
-	my $undef = undef;
 	is_deeply(
 		[ parse_email_groups("\"string1\x00string2\"") ],
 		[ undef, [ Email::Address::XS->new(phrase => "string1\x00string2") ] ],
@@ -1368,42 +1363,42 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test function parse_email_groups() on string which ends with nul character',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]),
+		format_email_groups(undef() => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]),
 		"\"string1\x00string2\" <user\@host>",
 		'test function format_email_groups() with nul character in phrase',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(phrase => "\x00string1\x00string2\x00", user => 'user', host => 'host') ]),
+		format_email_groups(undef() => [ Email::Address::XS->new(phrase => "\x00string1\x00string2\x00", user => 'user', host => 'host') ]),
 		"\"\x00string1\x00string2\x00\" <user\@host>",
 		'test function format_email_groups() with nul character in phrase',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(user => "string1\x00string2", host => 'host') ]),
+		format_email_groups(undef() => [ Email::Address::XS->new(user => "string1\x00string2", host => 'host') ]),
 		"\"string1\x00string2\"\@host",
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(user => "\x00string1\x00string2\x00", host => 'host') ]),
+		format_email_groups(undef() => [ Email::Address::XS->new(user => "\x00string1\x00string2\x00", host => 'host') ]),
 		"\"\x00string1\x00string2\x00\"\@host",
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
-		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]) },
+		with_warning { format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => "string1\x00string2") ]) },
 		'',
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
-		with_warning { format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => "\x00string1\x00string2\x00") ]) },
+		with_warning { format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => "\x00string1\x00string2\x00") ]) },
 		'',
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]),
+		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]),
 		"user\@host (string1\x00string2)",
 		'test function format_email_groups() with nul character in comment',
 	);
 	is(
-		format_email_groups($undef => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "\x00string1\x00string2\x00") ]),
+		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "\x00string1\x00string2\x00") ]),
 		"user\@host (\x00string1\x00string2\x00)",
 		'test function format_email_groups() with nul character in comment',
 	);
@@ -1412,12 +1407,11 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 #########################
 
 {
-	my $undef = undef;
 	tie my $input, 'TieScalarCounter', 'winston.smith@recdep.minitrue';
 	is_deeply(
 		[ parse_email_groups($input) ],
 		[
-			$undef => [
+			undef() => [
 				bless({ phrase => undef, user => 'winston.smith', host => 'recdep.minitrue', comment => undef }, 'Email::Address::XS::Derived'),
 			],
 		],
