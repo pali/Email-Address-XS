@@ -140,13 +140,12 @@ sub format_email_addresses {
 =item format_email_groups
 
   use Email::Address::XS qw(format_email_groups);
-  my $undef = undef;
 
   my $winstons_address = Email::Address::XS->new(phrase => 'Winston Smith', user => 'winston.smith', host => 'recdep.minitrue');
   my $julias_address = Email::Address::XS->new('Julia', 'julia@ficdep.minitrue');
   my $users_address = Email::Address::XS->new(address => 'user@oceania');
 
-  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], $undef => [ $users_address ]);
+  my $groups_string = format_email_groups('Brotherhood' => [ $winstons_address, $julias_address ], undef() => [ $users_address ]);
   print $groups_string;
   # Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, user@oceania
 
@@ -182,11 +181,10 @@ sub parse_email_addresses {
 =item parse_email_groups
 
   use Email::Address::XS qw(parse_email_groups);
-  my $undef = undef;
 
   my $string = 'Brotherhood: "Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>;, user@oceania, undisclosed-recipients:;';
   my @groups = parse_email_groups($string);
-  # @groups now contains list ('Brotherhood' => [ $winstons_object, $julias_object ], $undef => [ $users_object ], 'undisclosed-recipients' => [])
+  # @groups now contains list ('Brotherhood' => [ $winstons_object, $julias_object ], undef() => [ $users_object ], 'undisclosed-recipients' => [])
 
 Like L<C<parse_email_addresses>|/parse_email_addresses> but this
 function returns a list of pairs: a group display name and a
