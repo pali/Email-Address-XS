@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 497;
+use Test::More tests => 494;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -722,14 +722,6 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		my $address = Email::Address::XS->parse_bare_address('Winston Smith <winston.smith@recdep.minitrue>');
 		ok(!$address->is_valid(), $subtest);
 		is($address->original(), 'Winston Smith <winston.smith@recdep.minitrue>', $subtest);
-		is($address->address(), undef, $subtest);
-	}
-
-	{
-		my $subtest = 'test method parse_bare_address() on invalid input string - two addresses';
-		my $address = Email::Address::XS->parse_bare_address('winston.smith@recdep.minitrue, julia@ficdep.minitrue');
-		ok(!$address->is_valid(), $subtest);
-		is($address->original(), 'winston.smith@recdep.minitrue, julia@ficdep.minitrue', $subtest);
 		is($address->address(), undef, $subtest);
 	}
 
