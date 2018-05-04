@@ -226,7 +226,7 @@ unsigned char rfc822_atext_chars[256] = {
 #define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
 
 /* quote with "" and escape all '\', '"' and "'" characters if need */
-static void str_append_maybe_escape(string_t *str, const char *data, size_t len, bool escape_dot)
+static void str_append_maybe_escape(string_t *str, const char *data, size_t len, bool quote_dot)
 {
 	const char *p;
 	const char *end;
@@ -236,11 +236,15 @@ static void str_append_maybe_escape(string_t *str, const char *data, size_t len,
 		return;
 	}
 
+	/* leading or trailing dot needs to be always quoted */
+	if (data[0] == '.' || data[len-1] == '.')
+		quote_dot = true;
+
 	end = data + len;
 
 	/* see if we need to quote it */
 	for (p = data; p != end; p++) {
-		if (!IS_ATEXT(*p) && (escape_dot || *p != '.'))
+		if (!IS_ATEXT(*p) && (quote_dot || *p != '.'))
 			break;
 	}
 
