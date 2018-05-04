@@ -356,6 +356,7 @@ static int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
+	bool last_is_dot;
 	int ret;
 
 	/*
@@ -370,6 +371,8 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 	if (ctx->data >= ctx->end || !IS_ATEXT(*ctx->data))
 		return -1;
 
+	last_is_dot = false;
+
 	for (start = ctx->data++; ctx->data < ctx->end; ) {
 		if (IS_ATEXT(*ctx->data)) {
 			ctx->data++;
@@ -378,14 +381,21 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 
 		str_append_data(str, start, ctx->data - start);
 
+		if (ctx->data - start > 0)
+			last_is_dot = false;
+
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
 			return ret;
 
 		if (*ctx->data != '.')
-			return 1;
+			return last_is_dot ? -1 : 1;
+
+		if (last_is_dot)
+			return -1;
 
 		ctx->data++;
 		str_append_c(str, '.');
+		last_is_dot = true;
 
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
 			return ret;
