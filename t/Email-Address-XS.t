@@ -1349,17 +1349,17 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 {
 	is_deeply(
 		[ parse_email_groups("\"string1\x00string2\"") ],
-		[ undef, [ Email::Address::XS->new(phrase => "string1\x00string2") ] ],
+		[ undef() => [ Email::Address::XS->new(phrase => "string1\x00string2") ] ],
 		'test function parse_email_groups() on string with nul character',
 	);
 	is_deeply(
 		[ parse_email_groups("\"\x00string1\x00string2\"") ],
-		[ undef, [ Email::Address::XS->new(phrase => "\x00string1\x00string2") ] ],
+		[ undef() => [ Email::Address::XS->new(phrase => "\x00string1\x00string2") ] ],
 		'test function parse_email_groups() on string which begins with nul character',
 	);
 	is_deeply(
 		[ parse_email_groups("\"string1\x00string2\x00\"") ],
-		[ undef, [ Email::Address::XS->new(phrase => "string1\x00string2\x00") ] ],
+		[ undef() => [ Email::Address::XS->new(phrase => "string1\x00string2\x00") ] ],
 		'test function parse_email_groups() on string which ends with nul character',
 	);
 	is(
