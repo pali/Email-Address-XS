@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 489;
+use Test::More tests => 497;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -252,11 +252,24 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	}
 
 	{
-		my $subtest = 'test method new() with empty strings for user and host and non empty for phrase';
-		my $address = Email::Address::XS->new(user => '', host => '', phrase => 'phrase');
+		my $subtest = 'test method new() with empty strings for user and non empty for host and phrase';
+		my $address = Email::Address::XS->new(user => '', host => 'host', phrase => 'phrase');
+		ok($address->is_valid(), $subtest);
+		is($address->phrase(), 'phrase', $subtest);
+		is($address->user(), '', $subtest);
+		is($address->host(), 'host', $subtest);
+		is($address->address(), '""@host', $subtest);
+		is($address->comment(), undef, $subtest);
+		is($address->name(), 'phrase', $subtest);
+		is($address->format(), 'phrase <""@host>', $subtest);
+	}
+
+	{
+		my $subtest = 'test method new() with empty strings for host and non empty for user and phrase';
+		my $address = Email::Address::XS->new(user => 'user', host => '', phrase => 'phrase');
 		ok(!$address->is_valid(), $subtest);
 		is($address->phrase(), 'phrase', $subtest);
-		is($address->user(), undef, $subtest);
+		is($address->user(), 'user', $subtest);
 		is($address->host(), undef, $subtest);
 		is($address->address(), undef, $subtest);
 		is($address->comment(), undef, $subtest);

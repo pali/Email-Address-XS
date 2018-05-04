@@ -400,7 +400,7 @@ sub is_valid {
 	my ($self) = @_;
 	my $user = $self->user();
 	my $host = $self->host();
-	return (defined $user and length $user and defined $host and length $host and not $self->{invalid});
+	return (defined $user and defined $host and length $host and not $self->{invalid});
 }
 
 =item phrase
@@ -427,9 +427,6 @@ sub phrase {
 Accessor and mutator for the unescaped user (local/mailbox) part of
 an address.
 
-Since version 1.03 this method checks if setting a new value is syntactically
-valid (if it is non-empty string). If not undef is set and returned.
-
 =cut
 
 sub user {
@@ -437,11 +434,7 @@ sub user {
 	return $self->{user} unless @args;
 	delete $self->{cached_address} if exists $self->{cached_address};
 	delete $self->{invalid} if exists $self->{invalid};
-	if (defined $args[0] and length $args[0]) {
-		return $self->{user} = $args[0];
-	} else {
-		return $self->{user} = undef;
-	}
+	return $self->{user} = $args[0];
 }
 
 =item host
@@ -502,7 +495,7 @@ sub address {
 		$user = $self->user();
 		$host = $self->host();
 	}
-	if ( defined $user and defined $host and length $user and length $host ) {
+	if ( defined $user and defined $host and length $host ) {
 		return $self->{cached_address} = compose_address($user, $host);
 	} else {
 		return $self->{cached_address} = undef;
@@ -556,7 +549,7 @@ sub name {
 	my $comment = $self->comment();
 	return $comment if defined $comment and length $comment;
 	my $user = $self->user();
-	return $user if defined $user and length $user;
+	return $user if defined $user;
 	return '';
 }
 

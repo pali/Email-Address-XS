@@ -231,6 +231,11 @@ static void str_append_maybe_escape(string_t *str, const char *data, size_t len,
 	const char *p;
 	const char *end;
 
+	if (len == 0) {
+		str_append(str, "\"\"");
+		return;
+	}
+
 	end = data + len;
 
 	/* see if we need to quote it */
@@ -1173,10 +1178,7 @@ void message_address_write(char **output, size_t *output_len, const struct messa
 					str_append_data(str, addr->route, addr->route_len);
 					str_append_c(str, ':');
 				}
-				if (addr->mailbox_len == 0)
-					str_append(str, "\"\"");
-				else
-					str_append_maybe_escape(str, addr->mailbox, addr->mailbox_len, false);
+				str_append_maybe_escape(str, addr->mailbox, addr->mailbox_len, false);
 				if (addr->domain_len != 0) {
 					str_append_c(str, '@');
 					str_append_data(str, addr->domain, addr->domain_len);
