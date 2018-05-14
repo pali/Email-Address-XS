@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 494;
+use Test::More tests => 505;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -669,6 +669,27 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		is($address->original(), '"Winston Smith" <winston.smith@recdep.minitrue>', $subtest);
 		is($address->phrase(), 'Winston Smith', $subtest);
 		is($address->address(), 'winston.smith@recdep.minitrue', $subtest);
+	}
+
+	{
+		my $subtest = 'test method parse() in scalar context with invalid, but parsable angle address';
+		my $address = Email::Address::XS->parse('"Winston Smith" <winston.smith.@recdep.minitrue>');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), '"Winston Smith" <winston.smith.@recdep.minitrue>', $subtest);
+		is($address->phrase(), 'Winston Smith', $subtest);
+		is($address->user(), 'winston.smith.', $subtest);
+		is($address->host(), 'recdep.minitrue', $subtest);
+		is($address->address(), '"winston.smith."@recdep.minitrue', $subtest);
+	}
+
+	{
+		my $subtest = 'test method parse() in scalar context with invalid, but parsable bare address';
+		my $address = Email::Address::XS->parse('winston.smith.@recdep.minitrue');
+		ok(!$address->is_valid(), $subtest);
+		is($address->original(), 'winston.smith.@recdep.minitrue', $subtest);
+		is($address->user(), 'winston.smith.', $subtest);
+		is($address->host(), 'recdep.minitrue', $subtest);
+		is($address->address(), '"winston.smith."@recdep.minitrue', $subtest);
 	}
 
 }
