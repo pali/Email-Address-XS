@@ -866,8 +866,10 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 			Email::Address::XS->new(phrase => 'user5@oceania" <user6@oceania> , "', address => 'user4@oceania'),
 			Email::Address::XS->new(user => '.user7', host => 'oceania'),
 			Email::Address::XS->new(user => 'user8.', host => 'oceania'),
+			Email::Address::XS->new(phrase => '"', address => 'user9@oceania'),
+			Email::Address::XS->new(phrase => "Mr. '", address => 'user10@oceania'),
 		),
-		'"Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, O\'Brien <o\'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\"@\"shop"@thought.police.oceania>, "Emmanuel Goldstein" <goldstein@brotherhood.oceania>, user@oceania, "Escape \" also , characters ;" <user2@oceania>, "user5@oceania\" <user6@oceania> , \"" <user4@oceania>, ".user7"@oceania, "user8."@oceania',
+		q("Winston Smith" <winston.smith@recdep.minitrue>, Julia <julia@ficdep.minitrue>, O'Brien <o'brien@thought.police.oceania>, "Mr. Charrington" <"charrington\"@\"shop"@thought.police.oceania>, "Emmanuel Goldstein" <goldstein@brotherhood.oceania>, user@oceania, "Escape \" also , characters ;" <user2@oceania>, "user5@oceania\" <user6@oceania> , \"" <user4@oceania>, ".user7"@oceania, "user8."@oceania, "\"" <user9@oceania>, "Mr. '" <user10@oceania>),
 		'test function format_email_addresses() with list of different type of addresses',
 	);
 

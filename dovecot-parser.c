@@ -223,9 +223,9 @@ unsigned char rfc822_atext_chars[256] = {
 #define IS_ATEXT_NON_TSPECIAL(c) \
 	((rfc822_atext_chars[(int)(unsigned char)(c)] & 3) != 0)
 
-#define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
+#define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\')
 
-/* quote with "" and escape all '\', '"' and "'" characters if need */
+/* quote with "" and escape all '\', '"' characters if need */
 static void str_append_maybe_escape(string_t *str, const char *data, size_t len, bool quote_dot)
 {
 	const char *p;
