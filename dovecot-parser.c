@@ -425,9 +425,10 @@ static int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 }
 
 /* Like parse_atom() but don't stop at '.' */
-static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
+static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str, bool stop_trailing_dot)
 {
 	const unsigned char *start;
+	const unsigned char *last_dot_ptr;
 	bool last_is_dot;
 	bool dot_problem;
 	int ret;
@@ -444,6 +445,7 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 	if (ctx->data >= ctx->end || !IS_ATEXT(*ctx->data))
 		return -1;
 
+	last_dot_ptr = ctx->data;
 	last_is_dot = false;
 	dot_problem = false;
 
@@ -461,12 +463,18 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
 			return (dot_problem && ret >= 0) ? -2 : ret;
 
-		if (*ctx->data != '.')
+		if (*ctx->data != '.') {
+			if (last_is_dot && stop_trailing_dot) {
+				ctx->data = last_dot_ptr;
+				return dot_problem ? -2 : 1;
+			}
 			return (last_is_dot || dot_problem) ? -2 : 1;
+		}
 
 		if (last_is_dot)
 			dot_problem = true;
 
+		last_dot_ptr = ctx->data;
 		ctx->data++;
 		str_append_c(str, '.');
 		last_is_dot = true;
@@ -703,7 +711,7 @@ static int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 	if (*ctx->data == '[')
 		return rfc822_parse_domain_literal(ctx, str);
 	else
-		return rfc822_parse_dot_atom(ctx, str);
+		return rfc822_parse_dot_atom(ctx, str, false);
 }
 
 static void add_address(struct message_address_parser_context *ctx)
@@ -727,6 +735,7 @@ static void add_address(struct message_address_parser_context *ctx)
 static int parse_local_part(struct message_address_parser_context *ctx)
 {
 	int ret;
+	bool char_problem;
 
 	/*
 	   local-part      = dot-atom / quoted-string / obs-local-part
@@ -735,12 +744,38 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	i_assert(ctx->parser.data < ctx->parser.end);
 
 	str_truncate(ctx->str, 0);
-	if (*ctx->parser.data == '"')
-		ret = rfc822_parse_quoted_string(&ctx->parser, ctx->str);
-	else
-		ret = rfc822_parse_dot_atom(&ctx->parser, ctx->str);
-	if (ret < 0 && ret != -2)
-		return -1;
+	char_problem = false;
+
+	while (ctx->parser.data < ctx->parser.end) {
+		if (*ctx->parser.data == '"')
+			ret = rfc822_parse_quoted_string(&ctx->parser, ctx->str);
+		else
+			ret = rfc822_parse_dot_atom(&ctx->parser, ctx->str, true);
+		if (ret < 0 && ret != -2)
+			return -1;
+		if (ret == -2)
+			char_problem = true;
+		if (ctx->parser.data >= ctx->parser.end)
+			break;
+		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
+			break;
+		if (*ctx->parser.data != '.')
+			break;
+		ctx->parser.data++;
+		if (ctx->parser.data >= ctx->parser.end) {
+			char_problem = true;
+			break;
+		}
+		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
+			break;
+		if (ctx->parser.data >= ctx->parser.end || *ctx->parser.data == '@') {
+			char_problem = true;
+			break;
+		}
+	}
+
+	if (char_problem || ret < 0)
+		ctx->addr.invalid_syntax = true;
 
 	ctx->addr.mailbox = str_ccopy(ctx->str);
 	ctx->addr.mailbox_len = str_len(ctx->str);
