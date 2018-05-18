@@ -484,11 +484,14 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
+	bool char_problem;
+	int ret;
 	size_t len;
 
 	i_assert(ctx->data < ctx->end);
 	i_assert(*ctx->data == '"');
 	ctx->data++;
+	char_problem = false;
 
 	for (start = ctx->data; ctx->data < ctx->end; ctx->data++) {
 		switch (*ctx->data) {
@@ -498,20 +501,30 @@ static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_
 				str_append(str, ctx->nul_replacement_str);
 				start = ctx->data + 1;
 			} else {
-				return -1;
+				char_problem = true;
 			}
 			break;
 		case '"':
 			str_append_data(str, start, ctx->data - start);
 			ctx->data++;
-			return rfc822_skip_lwsp(ctx);
+			ret = rfc822_skip_lwsp(ctx);
+			return (char_problem && ret >= 0) ? -2 : ret;
+		case '\r':
+			if (ctx->data+1 < ctx->end && *(ctx->data+1) != '\n')
+				char_problem = true;
+			break;
 		case '\n':
+#if 0
 			/* folding whitespace, remove the (CR)LF */
 			len = ctx->data - start;
 			if (len > 0 && start[len-1] == '\r')
 				len--;
 			str_append_data(str, start, len);
 			start = ctx->data + 1;
+#endif
+			len = ctx->data - start;
+			if (len <= 0 || start[len-1] != '\r')
+				char_problem = true;
 			break;
 		case '\\':
 			ctx->data++;
@@ -527,7 +540,8 @@ static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_
 			}
 #endif
 			str_append_data(str, start, ctx->data - start - 1);
-			start = ctx->data;
+			str_append_c(str, *ctx->data);
+			start = ctx->data+1;
 			break;
 		}
 	}
@@ -565,6 +579,9 @@ rfc822_parse_atom_or_dot(struct rfc822_parser_context *ctx, string_t *str)
 static int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
 {
 	int ret;
+	bool char_problem;
+
+	char_problem = false;
 
 	/*
 	   phrase     = 1*word / obs-phrase
@@ -583,15 +600,22 @@ static int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
 		else
 			ret = rfc822_parse_atom_or_dot(ctx, str);
 
-		if (ret <= 0)
-			return ret;
+		if (ret <= 0 && ret != -2)
+			return (char_problem && ret == 0) ? -2 : ret;
+
+		if (ret == -2) {
+			char_problem = true;
+			if (ctx->data >= ctx->end)
+				return -2;
+		}
 
 		if (!IS_ATEXT(*ctx->data) && *ctx->data != '"'
 		    && *ctx->data != '.')
 			break;
 		str_append_c(str, ' ');
 	}
-	return rfc822_skip_lwsp(ctx);
+	ret = rfc822_skip_lwsp(ctx);
+	return (char_problem && ret >= 0) ? -2 : ret;
 }
 
 static int
@@ -829,14 +853,20 @@ static int parse_angle_addr(struct message_address_parser_context *ctx,
 
 static int parse_name_addr(struct message_address_parser_context *ctx)
 {
+	int ret;
+
 	/*
 	   name-addr       = [display-name] angle-addr
 	   display-name    = phrase
 	*/
 	str_truncate(ctx->str, 0);
-	if (rfc822_parse_phrase(&ctx->parser, ctx->str) <= 0 ||
+	ret = rfc822_parse_phrase(&ctx->parser, ctx->str);
+	if ((ret <= 0 && ret != -2) ||
 	    *ctx->parser.data != '<')
 		return -1;
+
+	if (ret == -2)
+		ctx->addr.invalid_syntax = true;
 
 	if (str_len(ctx->str) == 0) {
 		/* Cope with "<address>" without display name */
@@ -1012,9 +1042,13 @@ static int parse_group(struct message_address_parser_context *ctx)
 	   display-name    = phrase
 	*/
 	str_truncate(ctx->str, 0);
-	if (rfc822_parse_phrase(&ctx->parser, ctx->str) <= 0 ||
+	ret = rfc822_parse_phrase(&ctx->parser, ctx->str);
+	if ((ret <= 0 && ret != -2) ||
 	    *ctx->parser.data != ':')
 		return -1;
+
+	if (ret == -2)
+		ctx->addr.invalid_syntax = true;
 
 	/* from now on don't return -1 even if there are problems, so that
 	   the caller knows this is a group */
