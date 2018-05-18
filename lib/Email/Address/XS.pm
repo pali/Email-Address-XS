@@ -521,10 +521,11 @@ sub comment {
 	return $self->{comment} = undef unless defined $args[0];
 	my $count = 0;
 	my $cleaned = $args[0];
-	$cleaned =~ s/(?:\\.|[^\(\)])//g;
+	$cleaned =~ s/(?:\\.|[^\(\)\x00])//g;
 	foreach ( split //, $cleaned ) {
 		$count++ if $_ eq '(';
 		$count-- if $_ eq ')';
+		$count = -1 if $_ eq "\x00";
 		last if $count < 0;
 	}
 	return $self->{comment} = undef if $count != 0;

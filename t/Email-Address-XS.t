@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 507;
+use Test::More tests => 511;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -474,6 +474,12 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 	is($address->comment('string(\\\\\)not balanced'), undef, 'test method comment()');
 	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment("string\x00string"), undef, 'test method comment()');
+	is($address->comment(), undef, 'test method comment()');
+
+	is($address->comment("string\\\x00string"), "string\\\x00string", 'test method comment()');
+	is($address->comment(), "string\\\x00string", 'test method comment()');
 
 }
 
@@ -1428,13 +1434,13 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'test function format_email_groups() with nul character in host part of address',
 	);
 	is(
-		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\x00string2") ]),
-		"user\@host (string1\x00string2)",
+		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "string1\\\x00string2") ]),
+		"user\@host (string1\\\x00string2)",
 		'test function format_email_groups() with nul character in comment',
 	);
 	is(
-		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "\x00string1\x00string2\x00") ]),
-		"user\@host (\x00string1\x00string2\x00)",
+		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "\\\x00string1\\\x00string2\\\x00") ]),
+		"user\@host (\\\x00string1\\\x00string2\\\x00)",
 		'test function format_email_groups() with nul character in comment',
 	);
 	is(
