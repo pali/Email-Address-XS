@@ -19,7 +19,7 @@ use Carp;
 $Carp::Internal{'Test::Builder'} = 1;
 $Carp::Internal{'Test::More'} = 1;
 
-use Test::More tests => 505;
+use Test::More tests => 507;
 use Test::Builder;
 
 local $SIG{__WARN__} = sub {
@@ -1378,38 +1378,43 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 
 {
 	is_deeply(
-		[ parse_email_groups("\"string1\x00string2\"") ],
+		[ parse_email_groups("\"string1\\\x00string2\"") ],
 		[ undef() => [ Email::Address::XS->new(phrase => "string1\x00string2") ] ],
 		'test function parse_email_groups() on string with nul character',
 	);
 	is_deeply(
-		[ parse_email_groups("\"\x00string1\x00string2\"") ],
+		[ parse_email_groups("\"\\\x00string1\\\x00string2\"") ],
 		[ undef() => [ Email::Address::XS->new(phrase => "\x00string1\x00string2") ] ],
 		'test function parse_email_groups() on string which begins with nul character',
 	);
 	is_deeply(
-		[ parse_email_groups("\"string1\x00string2\x00\"") ],
+		[ parse_email_groups("\"string1\\\x00string2\\\x00\"") ],
 		[ undef() => [ Email::Address::XS->new(phrase => "string1\x00string2\x00") ] ],
 		'test function parse_email_groups() on string which ends with nul character',
 	);
+	is_deeply(
+		[ parse_email_groups(qq("\\\t" <"\\\t"\@host>)) ],
+		[ undef() => [ Email::Address::XS->new(phrase => "\t", user => "\t", host => 'host') ] ],
+		'test function parse_email_groups() on string with TAB characters',
+	);
 	is(
 		format_email_groups(undef() => [ Email::Address::XS->new(phrase => "string1\x00string2", user => 'user', host => 'host') ]),
-		"\"string1\x00string2\" <user\@host>",
+		"\"string1\\\x00string2\" <user\@host>",
 		'test function format_email_groups() with nul character in phrase',
 	);
 	is(
 		format_email_groups(undef() => [ Email::Address::XS->new(phrase => "\x00string1\x00string2\x00", user => 'user', host => 'host') ]),
-		"\"\x00string1\x00string2\x00\" <user\@host>",
+		"\"\\\x00string1\\\x00string2\\\x00\" <user\@host>",
 		'test function format_email_groups() with nul character in phrase',
 	);
 	is(
 		format_email_groups(undef() => [ Email::Address::XS->new(user => "string1\x00string2", host => 'host') ]),
-		"\"string1\x00string2\"\@host",
+		"\"string1\\\x00string2\"\@host",
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
 		format_email_groups(undef() => [ Email::Address::XS->new(user => "\x00string1\x00string2\x00", host => 'host') ]),
-		"\"\x00string1\x00string2\x00\"\@host",
+		"\"\\\x00string1\\\x00string2\\\x00\"\@host",
 		'test function format_email_groups() with nul character in user part of address',
 	);
 	is(
@@ -1431,6 +1436,11 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		format_email_groups(undef() => [ Email::Address::XS->new(user => 'user', host => 'host', comment => "\x00string1\x00string2\x00") ]),
 		"user\@host (\x00string1\x00string2\x00)",
 		'test function format_email_groups() with nul character in comment',
+	);
+	is(
+		format_email_groups(undef() => [ Email::Address::XS->new(user => qq("\\\x00\t\n\r), host => 'host') ]),
+		qq("\\"\\\\\\\x00\\\t\\\n\\\r"\@host),
+		'test function format_email_groups() with lot of non-qtext characters in user part of address'
 	);
 }
 

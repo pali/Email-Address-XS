@@ -223,9 +223,27 @@ unsigned char rfc822_atext_chars[256] = {
 #define IS_ATEXT_NON_TSPECIAL(c) \
 	((rfc822_atext_chars[(int)(unsigned char)(c)] & 3) != 0)
 
-#define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\')
+/*
+   qtext           =   %d33 /             ; Printable US-ASCII
+                       %d35-91 /          ;  characters not including
+                       %d93-126 /         ;  "\" or the quote character
+                       obs-qtext
 
-/* quote with "" and escape all '\', '"' characters if need */
+   obs-qtext       =   obs-NO-WS-CTL
+
+   obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
+                       %d11 /             ;  characters that do not
+                       %d12 /             ;  include the carriage
+                       %d14-31 /          ;  return, line feed, and
+                       %d127              ;  white space characters
+
+  So qtext is everything expects '\0', '\t', '\n', '\r', ' ', '"', '\\'.
+*/
+
+/* non-qtext characters */
+#define CHAR_NEEDS_ESCAPE(c) ((c) == '"' || (c) == '\\' || (c) == '\0' || (c) == '\t' || (c) == '\n' || (c) == '\r')
+
+/* quote with "" and escape all needed characters */
 static void str_append_maybe_escape(string_t *str, const char *data, size_t len, bool quote_dot)
 {
 	const char *p;
@@ -255,7 +273,7 @@ static void str_append_maybe_escape(string_t *str, const char *data, size_t len,
 
 	/* see if we need to escape it */
 	for (p = data; p != end; p++) {
-		if (IS_ESCAPED_CHAR(*p))
+		if (CHAR_NEEDS_ESCAPE(*p))
 			break;
 	}
 
@@ -272,7 +290,7 @@ static void str_append_maybe_escape(string_t *str, const char *data, size_t len,
 	str_append_data(str, data, (size_t) (p - data));
 
 	for (; p != end; p++) {
-		if (IS_ESCAPED_CHAR(*p))
+		if (CHAR_NEEDS_ESCAPE(*p))
 			str_append_c(str, '\\');
 		str_append_c(str, *p);
 	}
