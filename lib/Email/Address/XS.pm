@@ -18,7 +18,7 @@ XSLoader::load(__PACKAGE__, $VERSION);
 
 =head1 NAME
 
-Email::Address::XS - Parse and format RFC 2822 email addresses and groups
+Email::Address::XS - Parse and format RFC 5322 email addresses and groups
 
 =head1 SYNOPSIS
 
@@ -69,12 +69,14 @@ Email::Address::XS - Parse and format RFC 2822 email addresses and groups
 
 =head1 DESCRIPTION
 
-This module implements L<RFC 2822|https://tools.ietf.org/html/rfc2822>
+This module implements L<RFC 5322|https://tools.ietf.org/html/rfc5322>
 parser and formatter of email addresses and groups. It parses an input
 string from email headers which contain a list of email addresses or
 a groups of email addresses (like From, To, Cc, Bcc, Reply-To, Sender,
 ...). Also it can generate a string value for those headers from a
-list of email addresses objects.
+list of email addresses objects. Module is backward compatible with
+L<RFC 2822|https://tools.ietf.org/html/rfc2822> and
+L<RFC 822|https://tools.ietf.org/html/rfc822>.
 
 Parser and formatter functionality is implemented in XS and uses
 shared code from Dovecot IMAP server.
@@ -93,7 +95,7 @@ C<Email::Address> occurrence with C<Email::Address::XS> is sufficient.
 
 So unlike L<Email::Address|Email::Address>, this module does not use
 regular expressions for parsing but instead native XS implementation
-parses input string sequentially according to RFC 2822 grammar.
+parses input string sequentially according to RFC 5322 grammar.
 
 Additionally it has support also for named groups and so can be use
 instead of L<the Email::Address::List module|Email::Address::List>.
@@ -652,6 +654,7 @@ sub enable_cache {
 
 L<RFC 822|https://tools.ietf.org/html/rfc822>,
 L<RFC 2822|https://tools.ietf.org/html/rfc2822>,
+L<RFC 5322|https://tools.ietf.org/html/rfc5322>,
 L<Email::MIME::Header::AddressList>,
 L<Email::Address>,
 L<Email::Address::List>,
