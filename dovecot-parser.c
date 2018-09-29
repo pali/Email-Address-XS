@@ -68,7 +68,7 @@ struct message_address_parser_context {
 	struct message_address *first_addr, *last_addr, addr;
 	string_t *str;
 
-	bool fill_missing;
+	bool fill_missing, non_strict_dots, non_strict_dots_as_invalid;
 };
 
 static string_t *str_new(size_t initial_size)
@@ -424,6 +424,31 @@ static int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 	return ctx->data < ctx->end ? 1 : 0;
 }
 
+/* Stop at next non-atext char */
+int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+
+	/*
+	   atom            = [CFWS] 1*atext [CFWS]
+	   atext           =
+	     ; Any character except controls, SP, and specials.
+	*/
+	if (ctx->data >= ctx->end || !IS_ATEXT(*ctx->data))
+		return -1;
+
+	for (start = ctx->data++; ctx->data < ctx->end; ctx->data++) {
+		if (IS_ATEXT(*ctx->data))
+			continue;
+
+		str_append_data(str, start, ctx->data - start);
+		return rfc822_skip_lwsp(ctx);
+	}
+
+	str_append_data(str, start, ctx->data - start);
+	return 0;
+}
+
 /* Like parse_atom() but don't stop at '.' */
 static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str, bool stop_trailing_dot)
 {
@@ -455,6 +480,10 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 			continue;
 		}
 
+#if 0
+		if (start == ctx->data)
+			dot_problem = true;
+#endif
 		str_append_data(str, start, ctx->data - start);
 
 		if (ctx->data - start > 0)
@@ -484,6 +513,9 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 		start = ctx->data;
 	}
 
+#if 0
+	i_assert(start != ctx->data);
+#endif
 	str_append_data(str, start, ctx->data - start);
 	return dot_problem ? -2 : 0;
 }
@@ -539,8 +571,9 @@ static int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_
 			if (ctx->data >= ctx->end)
 				return -1;
 #if 0
-			if (*ctx->data == '\r' || *ctx->data == '\n') {
-				/* quoted-pair doesn't allow CR/LF.
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
 				   They are part of the obs-qp though, so don't
 				   return them as error. */
 				ctx->data--;
@@ -675,8 +708,9 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 			if (ctx->data >= ctx->end)
 				return -1;
 #if 0
-			if (*ctx->data == '\r' || *ctx->data == '\n') {
-				/* quoted-pair doesn't allow CR/LF.
+			if (*ctx->data == '\r' || *ctx->data == '\n' ||
+			    *ctx->data == '\0') {
+				/* quoted-pair doesn't allow CR/LF/NUL.
 				   They are part of the obs-qp though, so don't
 				   return them as error. */
 				str_append_data(str, start, ctx->data - start);
@@ -732,6 +766,29 @@ static void add_address(struct message_address_parser_context *ctx)
 	ctx->last_addr = addr;
 }
 
+static int
+parse_nonstrict_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
+{
+	int ret = -1;
+
+	do {
+		while (*ctx->data == '.') {
+			str_append_c(str, '.');
+			ctx->data++;
+			if (ctx->data == ctx->end) {
+				/* @domain is missing, but local-part
+				   parsing was successful */
+				return 0;
+			}
+			ret = 1;
+		}
+		if (*ctx->data == '@')
+			break;
+		ret = rfc822_parse_atom(ctx, str);
+	} while (ret > 0 && *ctx->data == '.');
+	return ret;
+}
+
 static int parse_local_part(struct message_address_parser_context *ctx)
 {
 	int ret;
@@ -749,9 +806,11 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	while (ctx->parser.data < ctx->parser.end) {
 		if (*ctx->parser.data == '"')
 			ret = rfc822_parse_quoted_string(&ctx->parser, ctx->str);
-		else
+		else if (!ctx->non_strict_dots || ctx->non_strict_dots_as_invalid)
 			ret = rfc822_parse_dot_atom(&ctx->parser, ctx->str, true);
-		if (ret < 0 && ret != -2)
+		else
+			ret = parse_nonstrict_dot_atom(&ctx->parser, ctx->str);
+		if (ret < 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid)))
 			return -1;
 		if (ret == -2)
 			char_problem = true;
@@ -787,7 +846,7 @@ static int parse_domain(struct message_address_parser_context *ctx)
 	int ret;
 
 	str_truncate(ctx->str, 0);
-	if ((ret = rfc822_parse_domain(&ctx->parser, ctx->str)) < 0 && ret != -2)
+	if ((ret = rfc822_parse_domain(&ctx->parser, ctx->str)) < 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid)))
 		return -1;
 
 	ctx->addr.domain = str_ccopy(ctx->str);
@@ -814,7 +873,7 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 			str_append_c(ctx->str, ',');
 
 		str_append_c(ctx->str, '@');
-		if ((ret = rfc822_parse_domain(&ctx->parser, ctx->str)) <= 0 && ret != -2)
+		if ((ret = rfc822_parse_domain(&ctx->parser, ctx->str)) <= 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid)))
 			return ret;
 
 		if (ret == -2)
@@ -863,14 +922,14 @@ static int parse_angle_addr(struct message_address_parser_context *ctx,
 	if (*ctx->parser.data == '>') {
 		/* <> address isn't valid */
 	} else {
-		if ((ret = parse_local_part(ctx)) <= 0 && ret != -2)
+		if ((ret = parse_local_part(ctx)) <= 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid)))
 			return -1;
 		if (ret == -2)
 			ctx->addr.invalid_syntax = true;
 		if (ctx->parser.data >= ctx->parser.end)
 			return 0;
 		if (*ctx->parser.data == '@') {
-			if ((ret = parse_domain(ctx)) <= 0 && ret != -2)
+			if ((ret = parse_domain(ctx)) <= 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid)))
 				return -1;
 			if (ret == -2)
 				ctx->addr.invalid_syntax = true;
@@ -896,7 +955,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 	*/
 	str_truncate(ctx->str, 0);
 	ret = rfc822_parse_phrase(&ctx->parser, ctx->str);
-	if ((ret <= 0 && ret != -2) ||
+	if ((ret <= 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid))) ||
 	    *ctx->parser.data != '<')
 		return -1;
 
@@ -1078,7 +1137,7 @@ static int parse_group(struct message_address_parser_context *ctx)
 	*/
 	str_truncate(ctx->str, 0);
 	ret = rfc822_parse_phrase(&ctx->parser, ctx->str);
-	if ((ret <= 0 && ret != -2) ||
+	if ((ret <= 0 && (ret != -2 || (!ctx->non_strict_dots && !ctx->non_strict_dots_as_invalid))) ||
 	    *ctx->parser.data != ':')
 		return -1;
 
@@ -1255,7 +1314,8 @@ void message_address_free(struct message_address **addr)
 
 struct message_address *
 message_address_parse(const char *input, size_t input_len,
-		      unsigned int max_addresses, bool fill_missing)
+		      unsigned int max_addresses,
+		      enum message_address_parse_flags flags)
 {
 	string_t *str;
 	struct message_address_parser_context ctx;
@@ -1273,7 +1333,9 @@ message_address_parse(const char *input, size_t input_len,
 	}
 
 	ctx.str = str_new(128);
-	ctx.fill_missing = fill_missing;
+	ctx.fill_missing = (flags & MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING) != 0;
+	ctx.non_strict_dots = (flags & MESSAGE_ADDRESS_PARSE_FLAG_STRICT_DOTS) == 0;
+	ctx.non_strict_dots_as_invalid = (flags & MESSAGE_ADDRESS_PARSE_FLAG_NON_STRICT_DOTS_AS_INVALID) != 0;
 
 	(void)parse_address_list(&ctx, max_addresses);
 
@@ -1460,6 +1522,8 @@ void split_address(const char *input, size_t input_len, char **mailbox, size_t *
 
 	ctx.str = str_new(128);
 	ctx.fill_missing = false;
+	ctx.non_strict_dots = false;
+	ctx.non_strict_dots_as_invalid = false;
 
 	ret = rfc822_skip_lwsp(&ctx.parser);
 
