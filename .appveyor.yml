@@ -5,14 +5,18 @@ cache:
 
 environment:
   matrix:
-    - perl: system
+    - perl: "5.8.9.5"
+    - perl: "5.10.1.5"
+    - perl: "5.12.3.20180709"
     - perl: "5.14.4.1"
     - perl: "5.16.3.20170202"
     - perl: "5.18.4.1"
     - perl: "5.20.3.3"
     - perl: "5.22.3.1"
-    - perl: "5.24.1.1"
-    - perl: "5.26.0.1"
+    - perl: "5.24.4.1"
+    - perl: "5.26.2.1"
+    - perl: "5.28.0.1"
+    - perl: system
 
 platform:
   - x86
@@ -21,16 +25,21 @@ platform:
 matrix:
   exclude:
     - platform: x64
+      perl: "5.8.9.5"
+    - platform: x64
+      perl: "5.10.1.5"
+    - platform: x64
       perl: system
 
 install:
+  - ren "C:\\Program Files\\Git\\usr\\bin\\perl.exe" perl.exe_do_not_use
+  - if /I not %perl% == system ren C:\MinGW MinGW_do_not_use
+  - if /I not %perl% == system ren C:\Perl Perl_do_not_use
   - if /I not %perl% == system if /I %PLATFORM% == x86 (set x86=--forcex86) else (set "x86= ")
   - if /I not %perl% == system choco config set cacheLocation C:\ProgramData\chocolatey\cache
   - if /I not %perl% == system cinst StrawberryPerl --version %perl% %x86% --allow-empty-checksums
-  - if /I not %perl% == system path C:\strawberry\perl\site\bin;C:\strawberry\perl\bin;C:\strawberry\c\bin;%PATH%
-  - if /I %perl% == system curl -fsS -o C:\dmake.zip http://www.cpan.org/authors/id/S/SH/SHAY/dmake-4.12.2.2.zip
-  - if /I %perl% == system 7z x -oC:\ C:\dmake.zip
-  - if /I %perl% == system path C:\MinGW\bin;C:\dmake;%PATH%
+  - if /I %perl% == system ppm install dmake
+  - refreshenv
   - perl -V
 
 build_script:
