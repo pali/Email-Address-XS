@@ -1216,6 +1216,7 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 			break;
 		if (ctx->parser.data >= ctx->parser.end ||
 		    *ctx->parser.data != ',') {
+			ctx->last_addr->invalid_syntax = true;
 			ret = -1;
 			break;
 		}
