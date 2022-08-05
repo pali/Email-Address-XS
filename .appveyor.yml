@@ -5,9 +5,6 @@ cache:
 
 environment:
   matrix:
-    - perl: "5.8.9.5"
-    - perl: "5.10.1.5"
-    - perl: "5.12.3.20180709"
     - perl: "5.14.4.1"
     - perl: "5.16.3.20170202"
     - perl: "5.18.4.1"
@@ -24,10 +21,6 @@ platform:
 
 matrix:
   exclude:
-    - platform: x64
-      perl: "5.8.9.5"
-    - platform: x64
-      perl: "5.10.1.5"
     - platform: x64
       perl: system
 
