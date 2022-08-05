@@ -508,7 +508,7 @@ static int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *st
 		str_append_c(str, '.');
 		last_is_dot = true;
 
-		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
+		if (rfc822_skip_lwsp(ctx) <= 0)
 			return (dot_problem && ret >= 0) ? -2 : ret;
 		start = ctx->data;
 	}
@@ -903,7 +903,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx,
 	if (*ctx->parser.data == '@') {
 		if ((ret = parse_domain_list(ctx)) > 0 && *ctx->parser.data == ':') {
 			ctx->parser.data++;
-		} else if (parsing_path && *ctx->parser.data != ':') {
+		} else if (parsing_path && (ctx->parser.data >= ctx->parser.end || *ctx->parser.data != ':')) {
 			return -1;
 		} else {
 			if (ctx->fill_missing && ret != -2)
