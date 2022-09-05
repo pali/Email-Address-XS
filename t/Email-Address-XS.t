@@ -60,7 +60,7 @@ require overload;
 my $obj_to_origstr = overload::Method 'Email::Address::XS', '""';
 my $obj_to_hashstr = \&obj_to_hashstr;
 
-# set stringify and eq operators for comparision used in is_deeply
+# set stringify and eq operators for comparison used in is_deeply
 {
 	local $SIG{__WARN__} = sub { };
 	overload::OVERLOAD 'Email::Address::XS', '""' => $obj_to_hashstr;
@@ -1015,7 +1015,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 	is_deeply(
 		[ parse_email_addresses('Winston Smith <winston   .smith  @  recdep(comment).      minitrue>' ) ],
 		[ Email::Address::XS->new(phrase => 'Winston Smith', address => 'winston.smith@recdep.minitrue', comment => 'comment') ],
-		'test function parse_email_addresses() on string with obsolate white spaces',
+		'test function parse_email_addresses() on string with obsolete white spaces',
 	);
 
 	is_deeply(
@@ -1277,21 +1277,21 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		'',
 		'test function format_email_groups() with magic scalar which is undef',
 	);
-	is(tied($str1)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-	is(tied($str2)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-	is(tied($str3)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-	is(tied($str4)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
+	is(tied($str1)->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
+	is(tied($str2)->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
+	is(tied($str3)->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
+	is(tied($str4)->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
 	is(tied($str1)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	is(tied($str2)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	is(tied($str3)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	is(tied($str4)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
-	is(tied($str5)->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
+	is(tied($str5)->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
 	is(tied($str5)->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 	foreach ( @{$list1}, @{$list2}, @{$list3}, @{$list4} ) {
-		is(tied($_->{user})->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-		is(tied($_->{host})->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-		is(tied($_->{phrase})->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
-		is(tied($_->{comment})->{fetch}, 1, 'test function format_email_groups() that called GET magic exacly once');
+		is(tied($_->{user})->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
+		is(tied($_->{host})->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
+		is(tied($_->{phrase})->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
+		is(tied($_->{comment})->{fetch}, 1, 'test function format_email_groups() that called GET magic exactly once');
 		is(tied($_->{user})->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 		is(tied($_->{host})->{store}, 0, 'test function format_email_groups() that did not call SET magic');
 		is(tied($_->{phrase})->{store}, 0, 'test function format_email_groups() that did not call SET magic');
@@ -1473,7 +1473,7 @@ my $obj_to_hashstr = \&obj_to_hashstr;
 		],
 		'test function parse_email_groups() with magic scalar',
 	);
-	is(tied($input)->{fetch}, 1, 'test function parse_email_groups() that called GET magic exacly once');
+	is(tied($input)->{fetch}, 1, 'test function parse_email_groups() that called GET magic exactly once');
 	is(tied($input)->{store}, 0, 'test function parse_email_groups() that did not call SET magic');
 }
 

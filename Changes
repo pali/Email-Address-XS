@@ -6,7 +6,7 @@ Revision history for Perl extension Email::Address::XS.
 	  https://github.com/pali/Email-Address-XS/issues/5
 
 1.04  Sat Jun 09 18:20:28 2018
-	- fix docevot parser to disallow leading dot in dot-atom
+	- fix dovecot parser to disallow leading dot in dot-atom
 	- fix generating and validating email addresses with empty user part
 	- fix generating email address with leading or trailing dot in user part
 	- try to parse invalid email addresses and mark them as invalid

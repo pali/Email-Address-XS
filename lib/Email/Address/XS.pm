@@ -192,7 +192,7 @@ Like L<C<parse_email_addresses>|/parse_email_addresses> but this
 function returns a list of pairs: a group display name and a
 reference to a list of addresses which belongs to that named group.
 An undef value for a group means that a following list of addresses
-is not inside any named group. An output is in a same format as a
+is not inside any named group. An output is in a same format as an
 input for the function L<C<format_email_groups>|/format_email_groups>.
 This function preserves order of groups and does not do any
 de-duplication or merging.
