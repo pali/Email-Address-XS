@@ -78,6 +78,13 @@ list of email addresses objects. Module is backward compatible with
 L<RFC 2822|https://tools.ietf.org/html/rfc2822> and
 L<RFC 822|https://tools.ietf.org/html/rfc822>.
 
+This module supports also I<Internationalized Email Headers>
+compatible with L<RFC 6532|https://tools.ietf.org/html/rfc6532>.
+All I<internationalized> strings should be expressed in UNICODE
+(sequence of ordinals / code points), which is the correct Perl way
+and not in a some encoded form (UTF-8, UTF-16, legacy 8-bit, etc...).
+Note that all UNICODE code points above C<U+FF> are accepted.
+
 Parser and formatter functionality is implemented in XS and uses
 shared code from Dovecot IMAP server.
 
