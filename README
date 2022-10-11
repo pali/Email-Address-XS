@@ -8,12 +8,18 @@ To, Cc, Bcc, Reply-To, Sender, ...). Also it can generate a string
 value for those headers from a list of email addresses objects.
 Module is backward compatible with RFC 2822 and RFC 822.
 
+This module supports also Internationalized Email Headers compatible
+with RFC 6532. All internationalized strings should be expressed in
+UNICODE (sequence of ordinals / code points), which is the correct
+Perl way and not in a some encoded form (UTF-8, UTF-16, legacy 8-bit,
+etc...). Note that all UNICODE code points above U+FF are accepted.
+
 Parser and formatter functionality is implemented in XS and uses
 shared code from Dovecot IMAP server.
 
 It is a drop-in replacement for the Email::Address module which has
 several security issues. E.g. issue CVE-2015-7686 (Algorithmic
-complexity vulnerability) which allows remote attackers to cause
+complexity vulnerability), which allows remote attackers to cause
 denial of service, is still present in Email::Address version 1.908.
 
 Email::Address::XS module was created to finally fix CVE-2015-7686.
@@ -29,6 +35,10 @@ sequentially according to RFC 5322 grammar.
 
 Additionally it has support also for named groups and so can be use
 instead of the Email::Address::List module.
+
+If you are looking for the module which provides object representation
+for the list of email addresses suitable for the MIME email headers,
+see Email::MIME::Header::AddressList.
 
 INSTALLATION
 
